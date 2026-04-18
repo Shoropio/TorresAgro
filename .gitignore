@@ -1,0 +1,32 @@
+# Top level gitignore
+.gradle
+.gradle-dist
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.idea
+*.iml
+.DS_Store
+/docs
+*.zip
+*.tar
+*.gz
+capture_*.png
+weather_*.json
+
+# Firebase
+google-services.json
+
+# Keys and credentials
+*.jks
+*.p12
+*.key
+*.pem
+secrets.property
+
+# Cache
+.kotlin
+.navigation
