@@ -26,7 +26,9 @@ class WeatherService {
             append("latitude=$finalLat&longitude=$finalLon")
             append("&current=temperature_2m,relative_humidity_2m,rain")
         }
-        val responseText = URL(forecastUrl).readText()
+        
+        val connection = openConnection(forecastUrl)
+        val responseText = connection.readBodyOrThrow()
         val forecast = json.decodeFromString<ForecastResponse>(responseText)
 
         WeatherSnapshot(
@@ -43,11 +45,34 @@ class WeatherService {
         if (locationName.isBlank()) return@withContext GeoResult(19.4326, -99.1332)
         val encoded = URLEncoder.encode(locationName, StandardCharsets.UTF_8)
         val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=$encoded&count=1&language=es&format=json"
-        val response = runCatching { 
-            val text = URL(geoUrl).readText()
+
+        val response = runCatching {
+            val connection = openConnection(geoUrl)
+            val text = connection.readBodyOrThrow()
             json.decodeFromString<GeoResponse>(text)
         }.getOrNull()
         response?.results?.firstOrNull() ?: GeoResult(19.4326, -99.1332)
+    }
+
+    private fun openConnection(url: String): java.net.HttpURLConnection {
+        return (URL(url).openConnection() as java.net.HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 10_000
+            setRequestProperty("User-Agent", "TorresAgroApp/1.0")
+        }
+    }
+
+    private fun java.net.HttpURLConnection.readBodyOrThrow(): String {
+        val body = try {
+            inputStream.bufferedReader().use { it.readText() }
+        } catch (_: Exception) {
+            errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        }
+
+        if (responseCode !in 200..299) {
+            throw IllegalStateException("HTTP $responseCode: $body")
+        }
+        return body
     }
 
     private fun describeRain(rain: Double): String {

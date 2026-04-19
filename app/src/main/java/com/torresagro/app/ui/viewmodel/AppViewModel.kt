@@ -136,6 +136,12 @@ class AppViewModel(
         }
     }
 
+    fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
+        viewModelScope.launch {
+            repository.refreshWeatherForCoordinates(locationLabel, latitude, longitude)
+        }
+    }
+
     fun addObservation(
         parcelId: String,
         date: String,
@@ -168,6 +174,24 @@ class AppViewModel(
     fun deleteObservation(observationId: String) {
         viewModelScope.launch {
             repository.deleteObservation(observationId)
+        }
+    }
+
+    fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        viewModelScope.launch {
+            repository.addInventoryItem(name, category, stock, unit, minimumStock)
+        }
+    }
+
+    fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        viewModelScope.launch {
+            repository.updateInventoryItem(id, name, category, stock, unit, minimumStock)
+        }
+    }
+
+    fun deleteInventoryItem(id: String) {
+        viewModelScope.launch {
+            repository.deleteInventoryItem(id)
         }
     }
 }

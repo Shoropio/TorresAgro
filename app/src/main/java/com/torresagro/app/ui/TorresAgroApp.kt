@@ -2,40 +2,17 @@ package com.torresagro.app.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Assessment
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Today
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import com.torresagro.app.data.repository.AgroRepository
 import com.torresagro.app.ui.navigation.AppDestination
-import com.torresagro.app.ui.screen.HomeScreen
-import com.torresagro.app.ui.screen.InventoryScreen
-import com.torresagro.app.ui.screen.NewActivityScreen
-import com.torresagro.app.ui.screen.NewParcelScreen
-import com.torresagro.app.ui.screen.ObservationFormScreen
-import com.torresagro.app.ui.screen.ParcelDetailScreen
-import com.torresagro.app.ui.screen.ParcelsScreen
-import com.torresagro.app.ui.screen.QuickAccessScreen
-import com.torresagro.app.ui.screen.ReportsScreen
-import com.torresagro.app.ui.screen.SplashScreen
-import com.torresagro.app.ui.screen.TaskFormScreen
-import com.torresagro.app.ui.screen.TasksScreen
+import com.torresagro.app.ui.screen.*
 import com.torresagro.app.ui.viewmodel.AppViewModel
 import com.torresagro.app.ui.viewmodel.AppViewModelFactory
 
@@ -46,12 +23,14 @@ fun TorresAgroApp(repository: AgroRepository) {
     val viewModel: AppViewModel = viewModel(factory = factory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val authManager = remember { com.torresagro.app.data.firebase.FirebaseAuthManager() }
+    
     val topLevel = listOf(
         AppDestination.Home,
         AppDestination.Parcels,
         AppDestination.Tasks,
         AppDestination.Inventory,
-        AppDestination.Reports
+        AppDestination.Settings
     )
 
     Scaffold(
@@ -64,7 +43,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                             AppDestination.Parcels -> Icons.Outlined.Map
                             AppDestination.Tasks -> Icons.Outlined.Today
                             AppDestination.Inventory -> Icons.Outlined.Inventory2
-                            AppDestination.Reports -> Icons.Outlined.Assessment
+                            AppDestination.Settings -> Icons.Outlined.Settings
                             else -> Icons.Outlined.Home
                         }
                         NavigationBarItem(
@@ -76,8 +55,8 @@ fun TorresAgroApp(repository: AgroRepository) {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(imageVector = icon, contentDescription = destination.label) },
-                            label = { Text(destination.label) }
+                            icon = { Icon(imageVector = icon, contentDescription = stringResource(destination.label)) },
+                            label = { Text(stringResource(destination.label)) }
                         )
                     }
                 }
@@ -91,17 +70,24 @@ fun TorresAgroApp(repository: AgroRepository) {
         ) {
             composable(AppDestination.Splash.route) {
                 LaunchedEffect(Unit) {
-                    navController.navigate(AppDestination.QuickAccess.route) {
-                        popUpTo(AppDestination.Splash.route) { inclusive = true }
+                    val userId = authManager.currentUid()
+                    if (userId != null) {
+                        navController.navigate(AppDestination.Home.route) {
+                            popUpTo(AppDestination.Splash.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(AppDestination.Login.route) {
+                            popUpTo(AppDestination.Splash.route) { inclusive = true }
+                        }
                     }
                 }
                 SplashScreen()
             }
-            composable(AppDestination.QuickAccess.route) {
-                QuickAccessScreen(
-                    onContinue = {
+            composable(AppDestination.Login.route) {
+                LoginScreen(
+                    onLoginSuccess = {
                         navController.navigate(AppDestination.Home.route) {
-                            popUpTo(AppDestination.QuickAccess.route) { inclusive = true }
+                            popUpTo(AppDestination.Login.route) { inclusive = true }
                         }
                     }
                 )
@@ -112,7 +98,8 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onCompleteTask = viewModel::completeTask,
                     onAddParcel = { navController.navigate(AppDestination.NewParcel.route) },
                     onAddActivity = { navController.navigate(AppDestination.NewActivity.route) },
-                    onRefreshWeather = viewModel::refreshWeather
+                    onRefreshWeather = viewModel::refreshWeather,
+                    onRefreshCurrentLocationWeather = viewModel::refreshWeatherForCoordinates
                 )
             }
             composable(AppDestination.Parcels.route) {
@@ -181,6 +168,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                 val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
                 ParcelDetailScreen(
                     parcel = state.parcels.firstOrNull { it.id == parcelId },
+                    weather = state.weather,
                     activities = state.activities.filter { it.parcelId == parcelId },
                     observations = state.observations.filter { it.parcelId == parcelId },
                     onAddActivity = { navController.navigate("${AppDestination.NewActivity.route}/$parcelId") },
@@ -191,7 +179,8 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onAddObservation = { navController.navigate("${AppDestination.NewObservation.route}/$parcelId") },
                     onEditObservation = { observationId ->
                         navController.navigate("${AppDestination.EditObservation.route}/$observationId")
-                    }
+                    },
+                    onRefreshWeather = viewModel::refreshWeather
                 )
             }
             composable(AppDestination.Tasks.route) {
@@ -202,36 +191,54 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onEditTask = { taskId -> navController.navigate("${AppDestination.EditTask.route}/$taskId") }
                 )
             }
+            composable(AppDestination.Inventory.route) {
+                InventoryScreen(
+                    state = state,
+                    onAddItem = { navController.navigate(AppDestination.NewInventoryItem.route) },
+                    onEditItem = { id -> navController.navigate("${AppDestination.EditInventoryItem.route}/$id") }
+                )
+            }
+            composable(AppDestination.NewInventoryItem.route) {
+                InventoryFormScreen(
+                    onSave = { name, cat, stock, unit, min ->
+                        viewModel.addInventoryItem(name, cat, stock, unit, min)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("${AppDestination.EditInventoryItem.route}/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id").orEmpty()
+                val item = state.inventory.firstOrNull { it.id == id }
+                InventoryFormScreen(
+                    initialItem = item,
+                    onSave = { name, cat, stock, unit, min ->
+                        viewModel.updateInventoryItem(id, name, cat, stock, unit, min)
+                        navController.popBackStack()
+                    },
+                    onDelete = {
+                        viewModel.deleteInventoryItem(id)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(AppDestination.Settings.route) {
+                SettingsScreen(
+                    onSignOut = {
+                        authManager.signOut()
+                        navController.navigate(AppDestination.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            // Add other forms as needed...
             composable(AppDestination.NewTask.route) {
                 TaskFormScreen(
                     parcels = state.parcels,
                     onSave = { parcelId, title, dueDate, taskType, priority, reminderEnabled, _ ->
                         viewModel.addTask(parcelId, title, dueDate, taskType, priority, reminderEnabled)
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable("${AppDestination.EditTask.route}/{taskId}") { backStackEntry ->
-                val taskId = backStackEntry.arguments?.getString("taskId").orEmpty()
-                val task = state.tasks.firstOrNull { it.id == taskId }
-                TaskFormScreen(
-                    parcels = state.parcels,
-                    initialTask = task,
-                    onSave = { parcelId, title, dueDate, taskType, priority, reminderEnabled, completed ->
-                        viewModel.updateTask(taskId, parcelId, title, dueDate, taskType, priority, reminderEnabled, completed)
-                        navController.popBackStack()
-                    },
-                    onDelete = {
-                        viewModel.deleteTask(taskId)
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable(AppDestination.NewActivity.route) {
-                NewActivityScreen(
-                    parcels = state.parcels,
-                    onSave = { parcelId, activityType, date, cost, quantity, notes, photoUri ->
-                        viewModel.addActivity(parcelId, activityType, date, cost, quantity, notes, photoUri)
                         navController.popBackStack()
                     }
                 )
@@ -246,55 +253,6 @@ fun TorresAgroApp(repository: AgroRepository) {
                         navController.popBackStack()
                     }
                 )
-            }
-            composable("${AppDestination.EditActivity.route}/{activityId}") { backStackEntry ->
-                val activityId = backStackEntry.arguments?.getString("activityId").orEmpty()
-                val activity = state.activities.firstOrNull { it.id == activityId }
-                NewActivityScreen(
-                    parcels = state.parcels,
-                    initialActivity = activity,
-                    onSave = { parcelId, activityType, date, cost, quantity, notes, photoUri ->
-                        viewModel.updateActivity(activityId, parcelId, activityType, date, cost, quantity, notes, photoUri)
-                        navController.popBackStack()
-                    },
-                    onDelete = {
-                        viewModel.deleteActivity(activityId)
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable("${AppDestination.NewObservation.route}/{parcelId}") { backStackEntry ->
-                val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
-                ObservationFormScreen(
-                    parcels = state.parcels,
-                    preselectedParcelId = parcelId,
-                    onSave = { selectedParcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri ->
-                        viewModel.addObservation(selectedParcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri)
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable("${AppDestination.EditObservation.route}/{observationId}") { backStackEntry ->
-                val observationId = backStackEntry.arguments?.getString("observationId").orEmpty()
-                val observation = state.observations.firstOrNull { it.id == observationId }
-                ObservationFormScreen(
-                    parcels = state.parcels,
-                    initialObservation = observation,
-                    onSave = { parcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri ->
-                        viewModel.updateObservation(observationId, parcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri)
-                        navController.popBackStack()
-                    },
-                    onDelete = {
-                        viewModel.deleteObservation(observationId)
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable(AppDestination.Inventory.route) {
-                InventoryScreen(state = state)
-            }
-            composable(AppDestination.Reports.route) {
-                ReportsScreen(state = state)
             }
         }
     }

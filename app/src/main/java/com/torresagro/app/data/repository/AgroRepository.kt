@@ -79,6 +79,7 @@ interface AgroRepository {
 
     suspend fun deleteTask(taskId: String)
     suspend fun refreshWeather(parcelId: String)
+    suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double)
     suspend fun addObservation(
         parcelId: String,
         date: String,
@@ -101,4 +102,7 @@ interface AgroRepository {
     )
 
     suspend fun deleteObservation(observationId: String)
+    suspend fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double)
+    suspend fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double)
+    suspend fun deleteInventoryItem(id: String)
 }

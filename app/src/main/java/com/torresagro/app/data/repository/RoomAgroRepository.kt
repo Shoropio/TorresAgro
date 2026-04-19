@@ -163,6 +163,7 @@ class RoomAgroRepository(
         )
         dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", id, "UPSERT", "${sowingDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
+        refreshWeather(id)
     }
 
     override suspend fun addActivity(
@@ -189,6 +190,31 @@ class RoomAgroRepository(
                 )
             )
         )
+        
+        // Auto-deduct from inventory logic
+        try {
+            val qtyValue = quantity.split(" ").firstOrNull()?.toDoubleOrNull() ?: 0.0
+            if (qtyValue > 0) {
+                val inventory = dao.getInventoryItems()
+                val matchingItem: com.torresagro.app.data.local.entity.InventoryItemEntity? = inventory.find { it ->
+                    when (activityType) {
+                        ActivityType.Fertilization -> it.name.contains("Fertilizante", ignoreCase = true) || it.category.contains("Fertilizante", ignoreCase = true)
+                        ActivityType.Spraying -> it.category.contains("Proteccion", ignoreCase = true) || it.name.contains("Veneno", ignoreCase = true) || it.name.contains("Liquido", ignoreCase = true)
+                        ActivityType.Sowing -> it.name.contains("Semilla", ignoreCase = true) || it.name.contains("Estaca", ignoreCase = true) || it.category.contains("Material", ignoreCase = true)
+                        else -> false
+                    }
+                }
+                
+                if (matchingItem != null) {
+                    val currentStock = matchingItem.stock
+                    val newStock = (currentStock - qtyValue).coerceAtLeast(0.0)
+                    dao.upsertInventory(listOf(matchingItem.copy(stock = newStock)))
+                }
+            }
+        } catch (e: Exception) {
+            // Safe fallback if parsing fails
+        }
+        
         dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "activity", id, "UPSERT", "${date}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
@@ -226,6 +252,7 @@ class RoomAgroRepository(
         )
         dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", parcelId, "UPSERT", "${sowingDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
+        refreshWeather(parcelId)
     }
 
     override suspend fun deleteParcel(parcelId: String) {
@@ -327,12 +354,31 @@ class RoomAgroRepository(
     }
 
     override suspend fun refreshWeather(parcelId: String) {
-        val parcel = uiState.value.parcels.firstOrNull { it.id == parcelId } ?: return
+        val parcel = dao.findParcelById(parcelId)?.toDomain()
+            ?: uiState.value.parcels.firstOrNull { it.id == parcelId }
+            ?: return
         weatherState.value = runCatching {
             weatherService.fetchWeather(parcel.locationName, parcel.latitude, parcel.longitude)
         }.getOrElse {
+            android.util.Log.w("RoomAgroRepository", "No se pudo actualizar el clima para ${parcel.locationName}", it)
             WeatherSnapshot(
                 locationLabel = parcel.locationName,
+                status = "Sin internet: ultimo dato guardado",
+                rainfallMm = weatherState.value?.rainfallMm ?: 12,
+                temperatureC = weatherState.value?.temperatureC ?: 28,
+                humidityPercent = weatherState.value?.humidityPercent ?: 80,
+                online = false
+            )
+        }
+    }
+
+    override suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
+        weatherState.value = runCatching {
+            weatherService.fetchWeather(locationLabel, latitude, longitude)
+        }.getOrElse {
+            android.util.Log.w("RoomAgroRepository", "No se pudo actualizar el clima para coordenadas $latitude,$longitude", it)
+            WeatherSnapshot(
+                locationLabel = locationLabel,
                 status = "Sin internet: ultimo dato guardado",
                 rainfallMm = weatherState.value?.rainfallMm ?: 12,
                 temperatureC = weatherState.value?.temperatureC ?: 28,
@@ -404,7 +450,51 @@ class RoomAgroRepository(
         syncGateway?.pushPendingChanges()
     }
 
+    override suspend fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        val id = UUID.randomUUID().toString()
+        dao.upsertInventory(
+            listOf(
+                com.torresagro.app.data.local.entity.InventoryItemEntity(
+                    id = id,
+                    name = name,
+                    category = category,
+                    stock = stock,
+                    unit = unit,
+                    minimumStock = minimumStock,
+                    offlinePendingSync = true
+                )
+            )
+        )
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
+        syncGateway?.pushPendingChanges()
+    }
+
+    override suspend fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        dao.upsertInventory(
+            listOf(
+                com.torresagro.app.data.local.entity.InventoryItemEntity(
+                    id = id,
+                    name = name,
+                    category = category,
+                    stock = stock,
+                    unit = unit,
+                    minimumStock = minimumStock,
+                    offlinePendingSync = true
+                )
+            )
+        )
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
+        syncGateway?.pushPendingChanges()
+    }
+
+    override suspend fun deleteInventoryItem(id: String) {
+        dao.deleteInventoryItem(id)
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "DELETE", "2026-04-17T08:00:00")))
+        syncGateway?.pushPendingChanges()
+    }
+
     private fun buildTips(): List<AgronomicTip> {
+// ... existing buildTips logic stays the same ...
         return CropCatalog.templates.flatMap { template ->
             template.recommendations.mapIndexed { index, tip ->
                 AgronomicTip(

@@ -236,7 +236,7 @@ class InMemoryAgroRepository : AgroRepository {
 
     override suspend fun refreshWeather(parcelId: String) {
         val parcel = state.value.parcels.firstOrNull { it.id == parcelId } ?: return
-        val updated = runCatching { weatherService.fetchWeather(parcel.locationName) }
+        val updated = runCatching { weatherService.fetchWeather(parcel.locationName, parcel.latitude, parcel.longitude) }
             .getOrElse {
                 WeatherSnapshot(
                     locationLabel = parcel.locationName,
@@ -247,6 +247,21 @@ class InMemoryAgroRepository : AgroRepository {
                     online = false
                 )
         }
+        state.update { current -> current.copy(weather = updated) }
+    }
+
+    override suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
+        val updated = runCatching { weatherService.fetchWeather(locationLabel, latitude, longitude) }
+            .getOrElse {
+                WeatherSnapshot(
+                    locationLabel = locationLabel,
+                    status = "Sin internet: ultimo dato local",
+                    rainfallMm = 18,
+                    temperatureC = 29,
+                    humidityPercent = 82,
+                    online = false
+                )
+            }
         state.update { current -> current.copy(weather = updated) }
     }
 
@@ -307,6 +322,45 @@ class InMemoryAgroRepository : AgroRepository {
     override suspend fun deleteObservation(observationId: String) {
         state.update { current ->
             current.copy(observations = current.observations.filterNot { it.id == observationId })
+        }
+    }
+
+    override suspend fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        state.update { current ->
+            current.copy(
+                inventory = current.inventory + InventoryItem(
+                    id = UUID.randomUUID().toString(),
+                    name = name,
+                    category = category,
+                    stock = stock,
+                    unit = unit,
+                    minimumStock = minimumStock
+                )
+            )
+        }
+    }
+
+    override suspend fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        state.update { current ->
+            current.copy(
+                inventory = current.inventory.map { item ->
+                    if (item.id == id) {
+                        item.copy(
+                            name = name,
+                            category = category,
+                            stock = stock,
+                            unit = unit,
+                            minimumStock = minimumStock
+                        )
+                    } else item
+                }
+            )
+        }
+    }
+
+    override suspend fun deleteInventoryItem(id: String) {
+        state.update { current ->
+            current.copy(inventory = current.inventory.filterNot { it.id == id })
         }
     }
 

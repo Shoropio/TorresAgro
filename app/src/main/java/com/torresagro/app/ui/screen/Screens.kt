@@ -1,5 +1,8 @@
 package com.torresagro.app.ui.screen
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,11 +17,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.Card
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,9 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.views.overlay.Polygon
 import com.torresagro.app.domain.model.ActivityRecord
 import com.torresagro.app.domain.model.AppUiState
@@ -55,6 +63,8 @@ import com.torresagro.app.ui.component.ClickableCard
 import com.torresagro.app.ui.component.InfoCard
 import com.torresagro.app.ui.component.SectionTitle
 import com.torresagro.app.ui.util.AreaCalculator
+import com.torresagro.app.ui.util.captureCurrentLocation
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
@@ -62,8 +72,34 @@ fun HomeScreen(
     onCompleteTask: (String) -> Unit,
     onAddParcel: () -> Unit,
     onAddActivity: () -> Unit,
-    onRefreshWeather: (String) -> Unit
+    onRefreshWeather: (String) -> Unit,
+    onRefreshCurrentLocationWeather: (String, Double, Double) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            scope.launch {
+                captureCurrentLocation(context)?.let { coords ->
+                    onRefreshCurrentLocationWeather("Ubicación actual", coords.first, coords.second)
+                }
+            }
+        } else if (state.weather?.online != true) {
+            state.parcels.firstOrNull()?.id?.let(onRefreshWeather)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -108,64 +144,100 @@ fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Clima actual",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                        Column {
+                            Text(
+                                "Clima en tu zona",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Bold
+                            )
+                            state.weather?.let {
+                                Text(
+                                    it.locationLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
                         if (state.parcels.isNotEmpty()) {
-                            Button(
+                            IconButton(
                                 onClick = { onRefreshWeather(state.parcels.first().id) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                modifier = Modifier.height(32.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
-                                Text("Actualizar", style = MaterialTheme.typography.labelSmall)
+                                Icon(
+                                    imageVector = Icons.Default.EditCalendar, // Changed from refresh for simplicity if not imported
+                                    contentDescription = "Actualizar",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     state.weather?.let { weather ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "${weather.temperatureC}°",
-                                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${weather.temperatureC}°",
+                                    style = MaterialTheme.typography.displayLarge.copy(
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-2).sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "C",
+                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Light),
+                                    modifier = Modifier.padding(top = 12.dp, start = 2.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                )
+                            }
+                            
+                            Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     weather.status,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
-                                Text(
-                                    weather.locationLabel,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    WeatherDetailItem(label = "Humedad", value = "${weather.humidityPercent}%")
+                                    Text("|", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
+                                    WeatherDetailItem(label = "Lluvia", value = "${weather.rainfallMm}mm")
+                                }
                             }
                         }
                     } ?: run {
-                        Text(
-                            "Crea una parcela para ver el clima local.",
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Crea una parcela para ver el clima local.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -308,19 +380,25 @@ fun ParcelsScreen(
 @Composable
 fun ParcelDetailScreen(
     parcel: Parcel?,
+    weather: com.torresagro.app.domain.model.WeatherSnapshot?,
     activities: List<ActivityRecord>,
     observations: List<CropObservation>,
     onAddActivity: () -> Unit,
     onEditParcel: () -> Unit,
     onEditActivity: (String) -> Unit,
     onAddObservation: () -> Unit,
-    onEditObservation: (String) -> Unit
+    onEditObservation: (String) -> Unit,
+    onRefreshWeather: (String) -> Unit
 ) {
     if (parcel == null) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Parcela no encontrada")
         }
         return
+    }
+
+    LaunchedEffect(parcel.id) {
+        onRefreshWeather(parcel.id)
     }
 
     LazyColumn(
@@ -342,6 +420,18 @@ fun ParcelDetailScreen(
                 }
             }
         }
+        weather?.let { parcelWeather ->
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Clima de esta parcela", fontWeight = FontWeight.Bold)
+                        Text(parcelWeather.locationLabel)
+                        Text("${parcelWeather.temperatureC} C | ${parcelWeather.humidityPercent}% humedad | ${parcelWeather.rainfallMm} mm")
+                        Text(parcelWeather.status)
+                    }
+                }
+            }
+        }
         if (parcel.boundary.isNotEmpty()) {
             item {
                 Card(
@@ -350,15 +440,10 @@ fun ParcelDetailScreen(
                         .height(200.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    val satelliteTileSource = XYTileSource(
-                        "EsriSatellite",
-                        0, 19, 256, ".jpg",
-                        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
-                    )
                     AndroidView(
                         factory = { ctx ->
                             MapView(ctx).apply {
-                                setTileSource(satelliteTileSource)
+                                setTileSource(EsriWorldImageryTileSource)
                                 controller.setZoom(16.0)
                                 val pts = parcel.boundary.map { GeoPoint(it.first, it.second) }
                                 controller.setCenter(pts.first())
@@ -548,5 +633,21 @@ fun ReportsScreen(state: AppUiState) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun WeatherDetailItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.End) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }

@@ -1,11 +1,15 @@
 package com.torresagro.app.ui.screen
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,11 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import com.torresagro.app.ui.util.AreaCalculator
+import com.torresagro.app.ui.util.captureCurrentLocation
+import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -34,29 +39,49 @@ fun ParcelMapScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     
     // Initialize osmdroid configuration
-    LaunchedEffect(Unit) {
-        Configuration.getInstance().userAgentValue = context.packageName
-    }
+    val userAgent = context.packageName
+    Configuration.getInstance().userAgentValue = userAgent
+    Configuration.getInstance().cacheMapTileCount = 12
 
     var points by remember { mutableStateOf(initialPoints.map { GeoPoint(it.first, it.second) }) }
+    var currentCenter by remember { mutableStateOf<GeoPoint?>(initialPoints.firstOrNull()?.let { GeoPoint(it.first, it.second) }) }
     val area = remember(points) { AreaCalculator.calculateHectares(points.map { it.latitude to it.longitude }) }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            scope.launch {
+                captureCurrentLocation(context)?.let { coords ->
+                    currentCenter = GeoPoint(coords.first, coords.second)
+                }
+            }
+        }
+    }
 
-    // Tile source for Satellite view (ESRI)
-    val satelliteTileSource = XYTileSource(
-        "EsriSatellite",
-        0, 19, 256, ".jpg",
-        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
-    )
+    LaunchedEffect(Unit) {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Mapear Parcela (Libre)") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                    }
+                },
                 actions = {
                     IconButton(onClick = { if (points.isNotEmpty()) points = points.dropLast(1) }) {
-                        Icon(Icons.Default.Undo, contentDescription = "Deshacer")
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Deshacer")
                     }
                     IconButton(onClick = { points = emptyList() }) {
                         Icon(Icons.Default.Clear, contentDescription = "Limpiar")
@@ -111,13 +136,20 @@ fun ParcelMapScreen(
         AndroidView(
             factory = { ctx ->
                 MapView(ctx).apply {
-                    setTileSource(satelliteTileSource)
+                    setTileSource(EsriWorldImageryTileSource)
                     setMultiTouchControls(true)
                     controller.setZoom(16.0)
+                    minZoomLevel = 3.0
+                    maxZoomLevel = 19.0
+                    // Ensure the map can load tiles online
+                    isVerticalMapRepetitionEnabled = false
+                    isHorizontalMapRepetitionEnabled = false
                     if (points.isNotEmpty()) {
                         controller.setCenter(points.first())
+                    } else if (currentCenter != null) {
+                        controller.setCenter(currentCenter)
                     } else {
-                        controller.setCenter(GeoPoint(18.8, -71.2)) // Localización por defecto (RD)
+                        controller.setCenter(GeoPoint(19.4326, -99.1332))
                     }
                 }
             },
@@ -125,6 +157,11 @@ fun ParcelMapScreen(
                 .fillMaxSize()
                 .padding(padding),
             update = { mapView ->
+                if (points.isNotEmpty()) {
+                    mapView.controller.animateTo(points.first())
+                } else {
+                    currentCenter?.let { mapView.controller.animateTo(it) }
+                }
                 mapView.overlays.clear()
                 
                 // Add points/markers
