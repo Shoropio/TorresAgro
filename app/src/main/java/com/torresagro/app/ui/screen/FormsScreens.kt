@@ -52,6 +52,7 @@ import com.torresagro.app.domain.model.TaskType
 import com.torresagro.app.ui.component.SectionTitle
 import com.torresagro.app.ui.util.createTempImageUri
 import com.torresagro.app.ui.util.captureCurrentLocation
+import java.util.Locale
 
 @Composable
 fun SplashScreen() {
@@ -100,9 +101,10 @@ fun NewParcelScreen(
     var latitude by remember { mutableStateOf(initialParcel?.latitude) }
     var longitude by remember { mutableStateOf(initialParcel?.longitude) }
     var boundary by remember { mutableStateOf(initialParcel?.boundary ?: emptyList()) }
+    val parsedSize = remember(sizeText) { sizeText.normalizedDecimalOrNull() }
 
     LaunchedEffect(calculatedArea) {
-        calculatedArea?.let { sizeText = "%.2f".format(it) }
+        calculatedArea?.let { sizeText = String.format(Locale.US, "%.2f", it) }
     }
     LaunchedEffect(updatedBoundary) {
         updatedBoundary?.let { boundary = it }
@@ -248,13 +250,13 @@ fun NewParcelScreen(
             }
         }
         item {
-            Button(
-                onClick = {
-                    val size = sizeText.toDoubleOrNull() ?: 0.0
-                    onSave(name, locationName, size, cropType, variety, sowingDate, latitude, longitude, boundary)
-                },
+                Button(
+                    onClick = {
+                        val normalizedSize = parsedSize ?: 0.0
+                        onSave(name, locationName, normalizedSize, cropType, variety, sowingDate, latitude, longitude, boundary)
+                    },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotBlank() && locationName.isNotBlank() && variety.isNotBlank() && sizeText.toDoubleOrNull() != null
+                enabled = name.isNotBlank() && locationName.isNotBlank() && variety.isNotBlank() && parsedSize != null
             ) {
                 Text(if (initialParcel == null) "Guardar parcela" else "Actualizar parcela")
             }
@@ -271,6 +273,12 @@ fun NewParcelScreen(
             }
         }
     }
+}
+
+private fun String.normalizedDecimalOrNull(): Double? {
+    return trim()
+        .replace(",", ".")
+        .toDoubleOrNull()
 }
 
 @Composable
@@ -461,17 +469,6 @@ private fun OptionPicker(
     }
 }
 
-@Composable
-fun SettingsScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        SectionTitle("Configuracion", "Preferencias, notificaciones, modo offline y opcion de sincronizacion.")
-    }
-}
 
 @Composable
 fun TaskFormScreen(
