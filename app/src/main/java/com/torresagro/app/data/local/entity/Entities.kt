@@ -62,7 +62,8 @@ data class InventoryItemEntity(
     val category: String,
     val stock: Double,
     val unit: String,
-    val minimumStock: Double
+    val minimumStock: Double,
+    val offlinePendingSync: Boolean = false
 )
 
 @Entity(tableName = "harvest_records")

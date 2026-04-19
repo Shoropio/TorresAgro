@@ -7,8 +7,19 @@ import com.torresagro.app.BuildConfig
 
 object FirebaseBootstrap {
     fun initializeIfPossible(context: Context): Boolean {
-        if (FirebaseApp.getApps(context).isNotEmpty()) return true
-        if (!isConfigured()) return false
+        try {
+            if (FirebaseApp.getApps(context).isNotEmpty()) return true
+        } catch (e: Exception) { }
+
+        if (!isConfigured()) {
+            android.util.Log.w("FirebaseBootstrap", "Firebase no configurado en local.properties, esperando google-services.json")
+            return try {
+                FirebaseApp.getInstance()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
 
         val options = FirebaseOptions.Builder()
             .setApiKey(BuildConfig.FIREBASE_API_KEY)

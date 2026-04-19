@@ -44,11 +44,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // OSMDroid Initialization
+        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
+
         requestNotificationPermissionIfNeeded()
         FirebaseBootstrap.initializeIfPossible(applicationContext)
+        
         lifecycleScope.launch {
-            SeedData.populateIfEmpty(database)
+            try {
+                SeedData.populateIfEmpty(database)
+            } catch (e: Exception) {
+                android.util.Log.e("TorresAgro", "Error en SeedData: ${e.message}")
+            }
         }
+        
         lifecycleScope.launch {
             runCatching {
                 repository.pushPendingChangesForStartup()
@@ -57,22 +67,7 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.e("TorresAgro", "Error inicial de Firebase: ${it.message}")
             }
         }
-        lifecycleScope.launch {
-            repository.uiState.collectLatest { state ->
-                if (state.parcels.isNotEmpty() && state.weather == null) {
-                    runCatching { repository.refreshWeather(state.parcels.first().id) }
-                }
-            }
-        }
-        lifecycleScope.launch {
-            repository.uiState.collectLatest { state ->
-                runCatching {
-                    TaskReminderScheduler(applicationContext).syncTasks(state.tasks, state.parcels)
-                }.onFailure {
-                    android.util.Log.e("TorresAgro", "Error sincronizando recordatorios: ${it.message}")
-                }
-            }
-        }
+
         setContent {
             TorresAgroTheme {
                 TorresAgroApp(repository = repository)

@@ -30,6 +30,9 @@ interface AgroDao {
     @Query("SELECT * FROM inventory_items")
     fun observeInventory(): Flow<List<InventoryItemEntity>>
 
+    @Query("SELECT * FROM inventory_items")
+    suspend fun getInventoryItems(): List<InventoryItemEntity>
+
     @Query("SELECT * FROM harvest_records")
     fun observeHarvests(): Flow<List<HarvestRecordEntity>>
 
@@ -110,4 +113,7 @@ interface AgroDao {
 
     @Query("DELETE FROM crop_observations")
     suspend fun clearObservations()
+
+    @Query("DELETE FROM inventory_items WHERE id = :id")
+    suspend fun deleteInventoryItem(id: String)
 }

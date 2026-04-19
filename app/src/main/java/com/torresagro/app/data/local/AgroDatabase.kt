@@ -21,7 +21,7 @@ import com.torresagro.app.data.local.entity.SyncQueueEntity
         HarvestRecordEntity::class,
         SyncQueueEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AgroDatabase : RoomDatabase() {

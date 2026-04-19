@@ -24,15 +24,14 @@ class FirebaseSyncGateway(
         if (!FirebaseBootstrap.initializeIfPossible(context)) return
         val uid = FirebaseAuthManager().ensureSignedIn() ?: return
         val firestore = FirebaseFirestore.getInstance()
-        val storage = FirebaseStorage.getInstance()
         val queue = dao.getSyncQueueItems()
 
         queue.forEach { item ->
             when (item.entityType) {
                 "parcel" -> syncParcel(uid, firestore, item)
                 "task" -> syncTask(uid, firestore, item)
-                "activity" -> syncActivity(uid, firestore, storage, item)
-                "observation" -> syncObservation(uid, firestore, storage, item)
+                "activity" -> syncActivity(uid, firestore, item)
+                "observation" -> syncObservation(uid, firestore, item)
             }
             dao.deleteSyncQueueItem(item.id)
         }
@@ -91,7 +90,6 @@ class FirebaseSyncGateway(
     private suspend fun syncActivity(
         uid: String,
         firestore: FirebaseFirestore,
-        storage: FirebaseStorage,
         item: SyncQueueEntity
     ) {
         val ref = firestore.collection(userPath(uid, "activities")).document(item.entityId)
@@ -100,7 +98,7 @@ class FirebaseSyncGateway(
             return
         }
         val activity = dao.findActivityById(item.entityId) ?: return
-        val uploadedPhoto = uploadIfNeeded(storage, "activities/$uid/${activity.id}.jpg", activity.photoUri)
+        val uploadedPhoto = uploadIfNeeded(activity.photoUri)
         val payload = ActivityRemote.from(activity.copy(photoUri = uploadedPhoto))
         ref.set(payload).await()
         if (uploadedPhoto != activity.photoUri) {
@@ -111,7 +109,6 @@ class FirebaseSyncGateway(
     private suspend fun syncObservation(
         uid: String,
         firestore: FirebaseFirestore,
-        storage: FirebaseStorage,
         item: SyncQueueEntity
     ) {
         val ref = firestore.collection(userPath(uid, "observations")).document(item.entityId)
@@ -120,7 +117,7 @@ class FirebaseSyncGateway(
             return
         }
         val observation = dao.findObservationById(item.entityId) ?: return
-        val uploadedPhoto = uploadIfNeeded(storage, "observations/$uid/${observation.id}.jpg", observation.photoUri)
+        val uploadedPhoto = uploadIfNeeded(observation.photoUri)
         val payload = ObservationRemote.from(observation.copy(photoUri = uploadedPhoto))
         ref.set(payload).await()
         if (uploadedPhoto != observation.photoUri) {
@@ -128,7 +125,7 @@ class FirebaseSyncGateway(
         }
     }
 
-    private suspend fun uploadIfNeeded(storage: FirebaseStorage, path: String, photoUri: String?): String? {
+    private suspend fun uploadIfNeeded(photoUri: String?): String? {
         // La version gratuita tiene limitaciones de Storage. 
         // Por ahora mantenemos la foto localmente y evitamos el error de subida.
         return photoUri

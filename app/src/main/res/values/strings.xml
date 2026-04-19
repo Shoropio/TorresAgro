@@ -1,3 +1,69 @@
 <resources>
     <string name="app_name">Torres Agro</string>
+    
+    <!-- Home Screen -->
+    <string name="welcome_back">Bienvenido de nuevo</string>
+    <string name="weather_not_available">Crea una parcela para ver el clima local.</string>
+    <string name="quick_actions">Acciones rápidas</string>
+    <string name="add_parcel_action">Añadir Lote</string>
+    <string name="activity_action">Actividad</string>
+    <string name="next_tasks">Próximas tareas</string>
+    <string name="tips_of_the_day">Consejos del día</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_parcels">Parcelas</string>
+    <string name="nav_tasks">Tareas</string>
+    <string name="nav_inventory">Inventario</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <!-- Inventory Screen -->
+    <string name="inventory_title">Inventario</string>
+
+    <!-- Parcels Screen -->
+    <string name="parcels_title">Parcelas</string>
+    <string name="parcels_subtitle">Cada lote guarda ubicación, variedad, fecha de siembra e historial.</string>
+    <string name="add_parcel_btn">Agregar parcela</string>
+    <string name="parcel_detail_not_found">Parcela no encontrada</string>
+    <string name="activity_history">Historial de actividades</string>
+    <string name="crop_monitoring">Monitoreo del cultivo</string>
+    <string name="gps_coords">GPS: %1$.5f, %2$.5f</string>
+    <string name="sync_pending">Pendiente de sincronizar</string>
+    <string name="sync_done">Sincronizada</string>
+
+    <!-- Map Screen -->
+    <string name="map_title">Mapear Parcela</string>
+    <string name="map_title_free">Mapear Parcela (Libre)</string>
+    <string name="calculated_area">Área Calculada</string>
+    <string name="hectares_format">%1$.2f Hectáreas</string>
+    <string name="map_instructions">Toca el mapa para marcar los límites. Usando mapas satelitales libres.</string>
+    <string name="confirm_btn">Confirmar</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Ajustes y Configuración</string>
+    <string name="notification_frequency">Frecuencia de notificaciones</string>
+    <string name="notif_daily">Diaria</string>
+    <string name="notif_weekly">Semanal</string>
+    <string name="notif_critical">Solo críticas</string>
+    <string name="dark_mode">Modo oscuro</string>
+    <string name="dark_mode_desc">Ajustar según sistema</string>
+    <string name="language">Idioma</string>
+    <string name="about_app">Sobre la aplicación</string>
+    <string name="app_version">Versión 1.0.0</string>
+
+    <!-- Login -->
+    <string name="login_welcome">Torres Agro</string>
+    <string name="login_subtitle">Gestión inteligente para el campo</string>
+    <string name="sign_in_google">Iniciar sesión con Google</string>
+    
+    <!-- Forms -->
+    <string name="save_btn">Guardar</string>
+    <string name="cancel_btn">Cancelar</string>
+    <string name="field_name">Nombre de la parcela</string>
+    <string name="field_location">Ubicación / Municipio</string>
+    <string name="field_size">Tamaño (hectáreas)</string>
+    <string name="field_crop_type">Tipo de cultivo</string>
+    <string name="field_variety">Variedad</string>
+    <string name="field_sowing_date">Fecha de siembra</string>
+    <string name="field_notes">Notas adicionales</string>
 </resources>

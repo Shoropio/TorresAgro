@@ -72,7 +72,8 @@ fun InventoryItemEntity.toDomain() = InventoryItem(
     category = category,
     stock = stock,
     unit = unit,
-    minimumStock = minimumStock
+    minimumStock = minimumStock,
+    offlinePendingSync = offlinePendingSync
 )
 
 fun HarvestRecordEntity.toDomain() = HarvestSummary(

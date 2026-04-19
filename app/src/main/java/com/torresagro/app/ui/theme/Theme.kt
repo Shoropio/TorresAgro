@@ -1,34 +1,57 @@
 package com.torresagro.app.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF1B5E20),      // Deep Forest Green
-    onPrimary = Color.White,
-    secondary = Color(0xFF795548),    // Earthy brown
-    tertiary = Color(0xFF00796B),     // Teal for accents
-    background = Color(0xFFFBFBF2),   // Creamy off-white
-    surface = Color(0xFFFFFFFF),
-    outline = Color(0xFFCFD8DC)
+private val DarkColorScheme = darkColorScheme(
+    primary = DarkPrimary,
+    secondary = TertiaryBlue,
+    tertiary = SecondaryBlue,
+    background = DarkBackground,
+    surface = DarkSurface,
+    onPrimary = Color.Black,
+    onBackground = Color.White,
+    onSurface = Color.White
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF81C784),      // Soft Green
-    secondary = Color(0xFFA1887F),    // Soft Earthy brown
-    tertiary = Color(0xFF4DB6AC),
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E)
+private val LightColorScheme = lightColorScheme(
+    primary = PrimaryBlue,
+    secondary = SecondaryBlue,
+    tertiary = TertiaryBlue,
+    background = LightBackground,
+    surface = LightSurface,
+    onPrimary = Color.White,
+    onBackground = Color(0xFF1C1B1F),
+    onSurface = Color(0xFF1C1B1F)
 )
 
 @Composable
-fun TorresAgroTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun TorresAgroTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val view = LocalView.current
+    
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
+
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )
