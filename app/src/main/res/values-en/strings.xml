@@ -1,0 +1,191 @@
+<resources>
+    <string name="app_name">TorresAgro</string>
+    <string name="copyright">© 2026 Shoropio Corporation. All rights reserved.</string>
+
+    <!-- General -->
+    <string name="back">Back</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="update">Update</string>
+    <string name="loading">Loading...</string>
+    <string name="success">Success</string>
+    <string name="error">Error</string>
+    <string name="not_available_short">N/A</string>
+    <string name="confirm_btn">Confirm</string>
+    <string name="save_btn">Save</string>
+    <string name="cancel_btn">Cancel</string>
+
+    <!-- Home Screen -->
+    <string name="welcome_back">Welcome back</string>
+    <string name="hello_farmer">Hello, Farmer</string>
+    <string name="welcome_message">Welcome to TorresAgro</string>
+    <string name="weather_not_available">Create a parcel to see local weather.</string>
+    <string name="weather_in_your_area">Weather in your area</string>
+    <string name="humidity">Humidity</string>
+    <string name="rainfall">Rainfall</string>
+    <string name="quick_actions">Quick actions</string>
+    <string name="add_parcel_action">Add Lot</string>
+    <string name="activity_action">Activity</string>
+    <string name="next_tasks">Next tasks</string>
+    <string name="tips_of_the_day">Tips of the day</string>
+    <string name="alerts_title">Alerts</string>
+    <string name="detected_risks">Detected risks</string>
+    <string name="field_alerts">Field alerts</string>
+    <string name="farm_dashboard">Farm Dashboard</string>
+    <string name="ndvi_map">NDVI Map</string>
+    <string name="new_lot">New Lot</string>
+    <string name="smart_recommendations">Smart recommendations</string>
+    <string name="close_btn">Close</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_parcels">Parcels</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_inventory">Inventory</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Inventory Screen -->
+    <string name="inventory_title">Inventory</string>
+    <string name="inventory_and_supplies">Inventory &amp; Supplies</string>
+    <string name="inventory_desc">Stock control for field work.</string>
+    <string name="current_stock_label">%1$s %2$s current</string>
+    <string name="restock_soon">Restock soon (Min: %1$s)</string>
+    <string name="suggested_minimum">Suggested minimum: %1$s %2$s</string>
+    <string name="new_item">New item</string>
+    <string name="edit_item">Edit item</string>
+    <string name="empty_inventory">Inventory is empty</string>
+    <string name="product_name">Product name</string>
+    <string name="category_label">Category (Fertilizer, etc.)</string>
+    <string name="stock_label">Stock</string>
+    <string name="unit_label">Unit</string>
+    <string name="min_stock_alert">Minimum stock for alert</string>
+    <string name="ready_to_save">Ready to save.</string>
+
+    <!-- Parcels Screen -->
+    <string name="parcels_title">Parcels</string>
+    <string name="parcels_subtitle">Each lot stores location, variety, sowing date, and history.</string>
+    <string name="add_parcel_btn">Add parcel</string>
+    <string name="parcel_detail_not_found">Parcel not found</string>
+    <string name="activity_history">Activity history</string>
+    <string name="crop_monitoring">Crop monitoring</string>
+    <string name="gps_coords">GPS: %1$.5f, %2$.5f</string>
+    <string name="sync_pending">Pending sync</string>
+    <string name="sync_done">Synced</string>
+
+    <!-- Parcel Details -->
+    <string name="satellite_health_ndvi">Satellite Health (NDVI)</string>
+    <string name="soil_moisture">Soil Moisture</string>
+    <string name="forecast_16_days">16-Day Forecast</string>
+    <string name="update_data_weather_sat">Update Data (Weather + Satellite)</string>
+    <string name="location_label">Location: %1$s</string>
+    <string name="size_label">Size: %1$s hectares</string>
+    <string name="sowing_date_label">Sowing: %1$s</string>
+    <string name="expected_harvest_label">Expected harvest: %1$s</string>
+    <string name="polygon_points_label">Mapped polygon: %1$d points</string>
+    <string name="autocalculated_area_label">Auto-calculated area: %1$.2f ha</string>
+
+    <!-- Map Screen -->
+    <string name="map_title">Map Parcel</string>
+    <string name="map_title_free">Map Parcel (Free)</string>
+    <string name="calculated_area">Calculated Area</string>
+    <string name="hectares_format">%1$.2f Hectares</string>
+    <string name="map_instructions">Tap the map to mark boundaries. Using free satellite maps.</string>
+    <string name="ndvi_legend">NDVI Legend</string>
+    <string name="high_vigor">High Vigor (>0.7)</string>
+    <string name="medium_vigor">Medium Vigor (0.5-0.7)</string>
+    <string name="low_vigor">Low Vigor (&lt;0.4)</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings &amp; Configuration</string>
+    <string name="notification_frequency">Notification frequency</string>
+    <string name="notif_daily">Daily</string>
+    <string name="notif_weekly">Weekly</string>
+    <string name="notif_critical">Critical only</string>
+    <string name="dark_mode">Dark mode</string>
+    <string name="dark_mode_desc">Adjust according to system</string>
+    <string name="language">Language</string>
+    <string name="language_name">English</string>
+    <string name="sign_out">Sign out</string>
+    <string name="about_app">About the application</string>
+    <string name="app_version">Version 1.0.0</string>
+
+    <!-- Login -->
+    <string name="login_welcome">TorresAgro</string>
+    <string name="login_subtitle">Smart management for the field</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="login_no_google">Entering without Google on this device.</string>
+    <string name="login_recovery">Recovering session... (Device with limited GMS)</string>
+
+    <!-- Forms -->
+    <string name="field_name">Parcel name</string>
+    <string name="field_location">Location / Municipality</string>
+    <string name="field_size">Size (hectares)</string>
+    <string name="field_size_ha">Size (ha)</string>
+    <string name="field_crop_type">Crop type</string>
+    <string name="field_variety">Variety</string>
+    <string name="field_sowing_date">Sowing date</string>
+    <string name="field_notes">Additional notes</string>
+    <string name="crop_label">Crop</string>
+    <string name="map_btn">Map</string>
+    <string name="use_gps_location">Use my current GPS location</string>
+    <string name="save_parcel">Save parcel</string>
+    <string name="update_parcel">Update parcel</string>
+
+    <!-- Tasks -->
+    <string name="agricultural_calendar">Agricultural calendar</string>
+    <string name="agricultural_calendar_desc">Editable schedule based on crop, sowing date, and pending work.</string>
+    <string name="new_task">New task</string>
+    <string name="complete_task">Complete</string>
+    <string name="edit_task">Edit task</string>
+    <string name="task_type">Type: %1$s</string>
+    <string name="task_priority">Priority: %1$s | %2$s</string>
+    <string name="task_completed">Completed</string>
+    <string name="task_pending">Pending</string>
+    <string name="task_reminder">Reminder: %1$s</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+
+    <!-- Reports -->
+    <string name="production_profitability">Production &amp; Profitability</string>
+    <string name="analysis_desc">Cost and income analysis per harvest.</string>
+    <string name="harvest_label">Harvest: %1$d kg</string>
+    <string name="profitable">Profitable</string>
+    <string name="invested_cost">Invested Cost</string>
+    <string name="net_profit">Net Profit</string>
+
+    <!-- Forms Validation -->
+    <string name="error_required_name">Enter product name.</string>
+    <string name="error_required_category">Enter product category.</string>
+    <string name="error_required_unit">Enter unit of measure.</string>
+    <string name="error_invalid_stock">Use a valid number for stock.</string>
+    <string name="error_negative_stock">Stock cannot be negative.</string>
+    <string name="error_required_stock">Enter current stock.</string>
+    <string name="error_required_min_stock">Enter minimum stock.</string>
+    <string name="error_invalid_min_stock">Use a valid number for minimum stock.</string>
+    <string name="error_negative_min_stock">Minimum stock cannot be negative.</string>
+
+    <string name="error_parcel_name">Enter a name for the parcel.</string>
+    <string name="error_parcel_location">Enter the location or municipality.</string>
+    <string name="error_parcel_size">Enter the size in hectares.</string>
+    <string name="error_invalid_size">Use a valid number, for example 1.5.</string>
+    <string name="error_zero_size">Size must be greater than zero.</string>
+    <string name="error_parcel_variety">Enter the sown variety.</string>
+    <string name="error_invalid_date">Use a valid date in YYYY-MM-DD format.</string>
+
+    <!-- Other Screens -->
+    <string name="splash_desc">Simple tool to plan and record the farm.</string>
+    <string name="quick_access_title">Quick access</string>
+    <string name="quick_access_desc">Enter without an account or activate sync later.</string>
+    <string name="enter_panel">Enter to dashboard</string>
+    <string name="new_parcel_title">New parcel</string>
+    <string name="edit_parcel_title">Edit parcel</string>
+    <string name="parcel_form_desc">Save lot, crop, variety, and sowing date.</string>
+    <string name="coordinates_label">Coordinates: %1$s</string>
+    <string name="coordinates_not_captured">Coordinates: not captured</string>
+    <string name="points_marked">Points marked: %1$d</string>
+    <string name="undo">Undo</string>
+    <string name="clear">Clear</string>
+    <string name="my_location">My location</string>
+    <string name="point_index">Point %1$d</string>
+    <string name="updated_at">Updated %1$s</string>
+</resources>

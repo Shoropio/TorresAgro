@@ -98,6 +98,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onCompleteTask = viewModel::completeTask,
                     onAddParcel = { navController.navigate(AppDestination.NewParcel.route) },
                     onAddActivity = { navController.navigate(AppDestination.NewActivity.route) },
+                    onOpenAgriMap = { navController.navigate(AppDestination.AgriMap.route) },
                     onRefreshWeather = viewModel::refreshWeather,
                     onRefreshCurrentLocationWeather = viewModel::refreshWeatherForCoordinates
                 )
@@ -123,7 +124,8 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onOpenMap = { pts ->
                         navController.currentBackStackEntry?.savedStateHandle?.set("points", pts)
                         navController.navigate(AppDestination.MapParcel.route)
-                    }
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable("${AppDestination.EditParcel.route}/{parcelId}") { backStackEntry ->
@@ -144,6 +146,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                         navController.currentBackStackEntry?.savedStateHandle?.set("points", pts)
                         navController.navigate(AppDestination.MapParcel.route)
                     },
+                    onBack = { navController.popBackStack() },
                     onDelete = {
                         viewModel.deleteParcel(parcelId)
                         navController.navigate(AppDestination.Parcels.route) {
@@ -164,13 +167,23 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(AppDestination.AgriMap.route) {
+                AgriMapScreen(
+                    state = state,
+                    onBack = { navController.popBackStack() },
+                    onOpenParcel = { parcelId -> 
+                        navController.navigate("${AppDestination.ParcelDetail.route}/$parcelId")
+                    }
+                )
+            }
             composable("${AppDestination.ParcelDetail.route}/{parcelId}") { backStackEntry ->
                 val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
                 ParcelDetailScreen(
                     parcel = state.parcels.firstOrNull { it.id == parcelId },
-                    weather = state.weather,
+                    weather = state.parcelWeatherById[parcelId],
                     activities = state.activities.filter { it.parcelId == parcelId },
                     observations = state.observations.filter { it.parcelId == parcelId },
+                    agriData = state.parcelAgriData[parcelId],
                     onAddActivity = { navController.navigate("${AppDestination.NewActivity.route}/$parcelId") },
                     onEditParcel = { navController.navigate("${AppDestination.EditParcel.route}/$parcelId") },
                     onEditActivity = { activityId ->
@@ -180,7 +193,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onEditObservation = { observationId ->
                         navController.navigate("${AppDestination.EditObservation.route}/$observationId")
                     },
-                    onRefreshWeather = viewModel::refreshWeather
+                    onDeleteParcel = { id ->
+                        viewModel.deleteParcel(id)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() },
+                    onRefreshWeather = viewModel::refreshWeather,
+                    onRefreshSatellite = { viewModel.refreshSatelliteData(parcelId) }
                 )
             }
             composable(AppDestination.Tasks.route) {
@@ -240,7 +259,25 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onSave = { parcelId, title, dueDate, taskType, priority, reminderEnabled, _ ->
                         viewModel.addTask(parcelId, title, dueDate, taskType, priority, reminderEnabled)
                         navController.popBackStack()
-                    }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("${AppDestination.EditTask.route}/{taskId}") { backStackEntry ->
+                val taskId = backStackEntry.arguments?.getString("taskId").orEmpty()
+                val task = state.tasks.firstOrNull { it.id == taskId } ?: return@composable
+                TaskFormScreen(
+                    parcels = state.parcels,
+                    initialTask = task,
+                    onSave = { parcelId, title, dueDate, taskType, priority, reminder, completed ->
+                        viewModel.updateTask(taskId, parcelId, title, dueDate, taskType, priority, reminder, completed)
+                        navController.popBackStack()
+                    },
+                    onDelete = {
+                        viewModel.deleteTask(taskId)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable("${AppDestination.NewActivity.route}/{parcelId}") { backStackEntry ->
@@ -251,7 +288,54 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onSave = { selectedParcelId, activityType, date, cost, quantity, notes, photoUri ->
                         viewModel.addActivity(selectedParcelId, activityType, date, cost, quantity, notes, photoUri)
                         navController.popBackStack()
-                    }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("${AppDestination.EditActivity.route}/{activityId}") { backStackEntry ->
+                val activityId = backStackEntry.arguments?.getString("activityId").orEmpty()
+                val activity = state.activities.firstOrNull { it.id == activityId } ?: return@composable
+                NewActivityScreen(
+                    parcels = state.parcels,
+                    initialActivity = activity,
+                    onSave = { parcelId, type, date, cost, quantity, notes, photo ->
+                        viewModel.updateActivity(activityId, parcelId, type, date, cost, quantity, notes, photo)
+                        navController.popBackStack()
+                    },
+                    onDelete = {
+                        viewModel.deleteActivity(activityId)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("${AppDestination.NewObservation.route}/{parcelId}") { backStackEntry ->
+                val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
+                ObservationFormScreen(
+                    parcels = state.parcels,
+                    preselectedParcelId = parcelId,
+                    onSave = { selParcelId, date, stage, status, symptoms, recommendation, photo ->
+                        viewModel.addObservation(selParcelId, date, stage, status, symptoms, recommendation, photo)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("${AppDestination.EditObservation.route}/{observationId}") { backStackEntry ->
+                val observationId = backStackEntry.arguments?.getString("observationId").orEmpty()
+                val obs = state.observations.firstOrNull { it.id == observationId } ?: return@composable
+                ObservationFormScreen(
+                    parcels = state.parcels,
+                    initialObservation = obs,
+                    onSave = { parcelId, date, stage, status, symptoms, rec, photo ->
+                        viewModel.updateObservation(observationId, parcelId, date, stage, status, symptoms, rec, photo)
+                        navController.popBackStack()
+                    },
+                    onDelete = {
+                        viewModel.deleteObservation(observationId)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

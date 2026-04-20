@@ -1,15 +1,42 @@
 <resources>
-    <string name="app_name">Torres Agro</string>
+    <string name="app_name">TorresAgro</string>
+    <string name="copyright">© 2026 Shoropio Corporation, Todos los derechos reservados.</string>
     
+    <!-- General -->
+    <string name="back">Volver</string>
+    <string name="delete">Eliminar</string>
+    <string name="edit">Editar</string>
+    <string name="update">Actualizar</string>
+    <string name="loading">Cargando...</string>
+    <string name="success">Éxito</string>
+    <string name="error">Error</string>
+    <string name="not_available_short">N/A</string>
+    <string name="confirm_btn">Confirmar</string>
+    <string name="save_btn">Guardar</string>
+    <string name="cancel_btn">Cancelar</string>
+
     <!-- Home Screen -->
     <string name="welcome_back">Bienvenido de nuevo</string>
+    <string name="hello_farmer">Hola, Agricultor</string>
+    <string name="welcome_message">Bienvenido a TorresAgro</string>
     <string name="weather_not_available">Crea una parcela para ver el clima local.</string>
+    <string name="weather_in_your_area">Clima en tu zona</string>
+    <string name="humidity">Humedad</string>
+    <string name="rainfall">Lluvia</string>
     <string name="quick_actions">Acciones rápidas</string>
-    <string name="add_parcel_action">Añadir Lote</string>
+    <string name="add_parcel_action">Añadir parcela</string>
     <string name="activity_action">Actividad</string>
     <string name="next_tasks">Próximas tareas</string>
     <string name="tips_of_the_day">Consejos del día</string>
-    
+    <string name="alerts_title">Alertas</string>
+    <string name="detected_risks">Riesgos detectados</string>
+    <string name="field_alerts">Alertas de campo</string>
+    <string name="farm_dashboard">Dashboard de Finca</string>
+    <string name="ndvi_map">Mapa NDVI</string>
+    <string name="new_lot">Nueva parcela</string>
+    <string name="smart_recommendations">Recomendaciones inteligentes</string>
+    <string name="close_btn">Cerrar</string>
+
     <!-- Navigation -->
     <string name="nav_home">Inicio</string>
     <string name="nav_parcels">Parcelas</string>
@@ -19,6 +46,22 @@
 
     <!-- Inventory Screen -->
     <string name="inventory_title">Inventario</string>
+    <string name="inventory_and_supplies">Inventario e insumos</string>
+    <string name="inventory_desc">Control de existencias para labores del campo.</string>
+    <string name="current_stock_label">%1$s %2$s actuales</string>
+    <string name="restock_soon">Reponer pronto (Mínimo: %1$s)</string>
+    <string name="suggested_minimum">Mínimo sugerido: %1$s %2$s</string>
+    <string name="new_item">Nuevo artículo</string>
+    <string name="edit_item">Editar artículo</string>
+    <string name="empty_inventory">El inventario está vacío</string>
+    <string name="product_name">Nombre del producto</string>
+    <string name="category_label">Categoría (Fertilizante, etc.)</string>
+    <string name="stock_label">Stock</string>
+    <string name="unit_label">Unidad</string>
+    <string name="min_stock_alert">Stock mínimo para alerta</string>
+    <string name="ready_to_save">Listo para guardar.</string>
+    <string name="delete_btn">Eliminar</string>
+    <string name="edit_parcel_btn">Editar Parcela</string>
 
     <!-- Parcels Screen -->
     <string name="parcels_title">Parcelas</string>
@@ -31,13 +74,33 @@
     <string name="sync_pending">Pendiente de sincronizar</string>
     <string name="sync_done">Sincronizada</string>
 
+    <!-- Parcel Details -->
+    <string name="satellite_health_ndvi">Salud Satelital (NDVI)</string>
+    <string name="soil_moisture">Humedad Suelo</string>
+    <string name="forecast_16_days">Pronóstico 16 días</string>
+    <string name="update_data_weather_sat">Actualizar Datos (Clima + Satélite)</string>
+    <string name="location_label">Ubicación: %1$s</string>
+    <string name="size_label">Tamaño: %1$s hectáreas</string>
+    <string name="sowing_date_label">Siembra: %1$s</string>
+    <string name="expected_harvest_label">Cosecha estimada: %1$s</string>
+    <string name="polygon_points_label">Polígono trazado: %1$d puntos</string>
+    <string name="autocalculated_area_label">Área autocalculada: %1$.2f ha</string>
+    <string name="pest_prediction_title">Reporte Fitosanitario (Agrio)</string>
+    <string name="historical_precip_title">Histórico Climático (aWhere)</string>
+    <string name="no_pests_detected">No se detectan amenazas inminentes.</string>
+    <string name="risk_level_label">Nivel de Riesgo: %1$s</string>
+    <string name="preventive_action_label">Acción preventiva: %1$s</string>
+
     <!-- Map Screen -->
     <string name="map_title">Mapear Parcela</string>
     <string name="map_title_free">Mapear Parcela (Libre)</string>
     <string name="calculated_area">Área Calculada</string>
     <string name="hectares_format">%1$.2f Hectáreas</string>
     <string name="map_instructions">Toca el mapa para marcar los límites. Usando mapas satelitales libres.</string>
-    <string name="confirm_btn">Confirmar</string>
+    <string name="ndvi_legend">Leyenda NDVI</string>
+    <string name="high_vigor">Vigor Alto (>0.7)</string>
+    <string name="medium_vigor">Vigor Medio (0.5-0.7)</string>
+    <string name="low_vigor">Vigor Bajo (&lt;0.4)</string>
     
     <!-- Settings -->
     <string name="settings_title">Ajustes y Configuración</string>
@@ -48,22 +111,171 @@
     <string name="dark_mode">Modo oscuro</string>
     <string name="dark_mode_desc">Ajustar según sistema</string>
     <string name="language">Idioma</string>
+    <string name="language_name">Español</string>
+    <string name="sign_out">Cerrar sesión</string>
     <string name="about_app">Sobre la aplicación</string>
     <string name="app_version">Versión 1.0.0</string>
 
     <!-- Login -->
-    <string name="login_welcome">Torres Agro</string>
+    <string name="login_welcome">TorresAgro</string>
     <string name="login_subtitle">Gestión inteligente para el campo</string>
     <string name="sign_in_google">Iniciar sesión con Google</string>
-    
+    <string name="login_no_google">Entrando sin Google en este dispositivo.</string>
+    <string name="login_recovery">Rescatando sesión... (Dispositivo con GMS limitado)</string>
+
     <!-- Forms -->
-    <string name="save_btn">Guardar</string>
-    <string name="cancel_btn">Cancelar</string>
     <string name="field_name">Nombre de la parcela</string>
     <string name="field_location">Ubicación / Municipio</string>
     <string name="field_size">Tamaño (hectáreas)</string>
+    <string name="field_size_ha">Tamaño (ha)</string>
     <string name="field_crop_type">Tipo de cultivo</string>
     <string name="field_variety">Variedad</string>
     <string name="field_sowing_date">Fecha de siembra</string>
     <string name="field_notes">Notas adicionales</string>
+    <string name="crop_label">Cultivo</string>
+    <string name="map_btn">Mapa</string>
+    <string name="use_gps_location">Usar mi ubicación GPS actual</string>
+    <string name="save_parcel">Guardar parcela</string>
+    <string name="update_parcel">Actualizar parcela</string>
+
+    <!-- Tasks -->
+    <string name="agricultural_calendar">Calendario agrícola</string>
+    <string name="agricultural_calendar_desc">Cronograma editable según cultivo, fecha de siembra y labores pendientes.</string>
+    <string name="new_task">Nueva tarea</string>
+    <string name="complete_task">Completar</string>
+    <string name="edit_task">Editar tarea</string>
+    <string name="task_type">Tipo: %1$s</string>
+    <string name="task_priority">Prioridad: %1$s | %2$s</string>
+    <string name="task_completed">Realizada</string>
+    <string name="task_pending">Pendiente</string>
+    <string name="task_reminder">Recordatorio: %1$s</string>
+    <string name="active">Activo</string>
+    <string name="inactive">Inactivo</string>
+
+    <!-- Reports -->
+    <string name="production_profitability">Producción y rentabilidad</string>
+    <string name="analysis_desc">Análisis de costos e ingresos por cosecha.</string>
+    <string name="harvest_label">Recolección: %1$d kg</string>
+    <string name="profitable">Rentable</string>
+    <string name="invested_cost">Costo Invertido</string>
+    <string name="net_profit">Ganancia Neta</string>
+
+    <!-- Forms Validation -->
+    <string name="error_required_name">Ingresa el nombre del producto.</string>
+    <string name="error_required_category">Ingresa la categoría del producto.</string>
+    <string name="error_required_unit">Ingresa la unidad de medida.</string>
+    <string name="error_invalid_stock">Usa un número válido para el stock.</string>
+    <string name="error_negative_stock">El stock no puede ser negativo.</string>
+    <string name="error_required_stock">Ingresa el stock actual.</string>
+    <string name="error_required_min_stock">Ingresa el stock mínimo.</string>
+    <string name="error_invalid_min_stock">Usa un número válido para el stock mínimo.</string>
+    <string name="error_negative_min_stock">El stock mínimo no puede ser negativo.</string>
+
+    <string name="error_parcel_name">Ingresa un nombre para la parcela.</string>
+    <string name="error_parcel_location">Ingresa la ubicación o municipio.</string>
+    <string name="error_parcel_size">Ingresa el tamaño en hectáreas.</string>
+    <string name="error_invalid_size">Usa un número válido, por ejemplo 1.5.</string>
+    <string name="error_zero_size">El tamaño debe ser mayor a cero.</string>
+    <string name="error_parcel_variety">Ingresa la variedad sembrada.</string>
+    <string name="error_invalid_date">Usa una fecha válida con formato AAAA-MM-DD.</string>
+
+    <string name="error_cost_empty">Ingresa el costo de la actividad.</string>
+    <string name="error_cost_invalid">Usa un número válido para el costo.</string>
+    <string name="error_cost_negative">El costo no puede ser negativo.</string>
+    <string name="error_quantity_required">Ingresa la cantidad aplicada o usada.</string>
+    <string name="error_notes_required">Agrega una observación breve.</string>
+    <string name="error_task_title_required">Ingresa un título para la tarea.</string>
+    <string name="error_crop_stage_required">Ingresa la etapa del cultivo.</string>
+    <string name="error_recommendation_required">Agrega una recomendación para el seguimiento.</string>
+
+    <!-- Other Screens -->
+    <string name="splash_desc">Herramienta simple para planificar y registrar la finca.</string>
+    <string name="quick_access_title">Acceso rápido</string>
+    <string name="quick_access_desc">Entrar sin cuenta o activar sincronización más adelante.</string>
+    <string name="enter_panel">Entrar al panel</string>
+
+    <string name="new_parcel_title">Nueva parcela</string>
+    <string name="edit_parcel_title">Editar parcela</string>
+    <string name="parcel_form_desc">Guardar lote, cultivo, variedad y fecha de siembra.</string>
+    <string name="delete_parcel_btn">Eliminar parcela</string>
+
+    <string name="new_activity_title">Nueva actividad</string>
+    <string name="edit_activity_title">Editar actividad</string>
+    <string name="activity_form_desc">Registrar siembra, riego, abonado, fumigación, deshierbe o cosecha.</string>
+    <string name="error_no_parcels_activity">Primero crea una parcela para poder registrar actividades.</string>
+    <string name="error_no_parcels_task">Primero crea una parcela para programar tareas.</string>
+    <string name="error_no_parcels_observation">Primero crea una parcela para registrar monitoreo.</string>
+
+    <string name="new_task_title">Nueva tarea</string>
+    <string name="edit_task_title">Editar tarea</string>
+    <string name="task_form_desc">Programar labores, prioridad y recordatorio local.</string>
+
+    <string name="new_observation_title">Nuevo monitoreo</string>
+    <string name="edit_observation_title">Editar monitoreo</string>
+    <string name="observation_form_desc">Registrar estado general, síntomas y evidencia visual por visita.</string>
+
+    <string name="coordinates_label">Coordenadas: %1$s</string>
+    <string name="coordinates_not_captured">Coordenadas: no capturadas</string>
+
+    <!-- Form Labels -->
+    <string name="parcel_label">Parcela</string>
+    <string name="activity_type_label">Tipo de actividad</string>
+    <string name="date_format_label">Fecha (AAAA-MM-DD)</string>
+    <string name="cost_label">Costo</string>
+    <string name="quantity_label">Cantidad aplicada o usada</string>
+    <string name="observations_label">Observaciones</string>
+    <string name="photo_support_label">Foto de apoyo</string>
+    <string name="choose_gallery_btn">Elegir de galería</string>
+    <string name="take_photo_btn">Tomar foto</string>
+    <string name="activity_photo_desc">Foto de actividad</string>
+    <string name="save_activity_btn">Guardar actividad</string>
+    <string name="update_activity_btn">Actualizar actividad</string>
+    <string name="delete_activity_btn">Eliminar actividad</string>
+
+    <string name="task_title_label">Título de la tarea</string>
+    <string name="task_type_label">Tipo de tarea</string>
+    <string name="priority_label">Prioridad</string>
+    <string name="local_reminder_label">Recordatorio local</string>
+    <string name="status_label">Estado</string>
+    <string name="task_done_label">Realizada</string>
+    <string name="task_pending_label">Pendiente</string>
+    <string name="save_task_btn">Guardar tarea</string>
+    <string name="update_task_btn">Actualizar tarea</string>
+    <string name="delete_task_btn">Eliminar tarea</string>
+    <string name="priority_high">Alta</string>
+    <string name="priority_medium">Media</string>
+    <string name="priority_low">Baja</string>
+
+    <string name="crop_stage_label">Etapa del cultivo</string>
+    <string name="general_status_label">Estado general</string>
+    <string name="observed_symptoms_label">Síntomas observados</string>
+    <string name="recommendation_label">Recomendación</string>
+    <string name="monitoring_photo_label">Foto de monitoreo</string>
+    <string name="save_observation_btn">Guardar monitoreo</string>
+    <string name="update_observation_btn">Actualizar monitoreo</string>
+    <string name="delete_observation_btn">Eliminar monitoreo</string>
+    <string name="selected_none">Seleccionado: ninguno</string>
+    <string name="selected_label">Seleccionado: %1$s</string>
+    <string name="remove_label">Quitar: %1$s</string>
+    <string name="add_label">Agregar: %1$s</string>
+    <string name="points_marked">Puntos marcados: %1$d</string>
+    <string name="undo">Deshacer</string>
+    <string name="clear">Limpiar</string>
+    <string name="my_location">Mi ubicación</string>
+    <string name="point_index">Punto %1$d</string>
+    <string name="status_good">Bueno</string>
+    <string name="status_regular">Regular</string>
+    <string name="status_alert">Alerta</string>
+    <string name="updated_at">Actualizado %1$s</string>
+
+    <!-- Weather Conditions -->
+    <string name="weather_clear">Despejado</string>
+    <string name="weather_partly_cloudy">Parcialmente nublado</string>
+    <string name="weather_fog">Niebla</string>
+    <string name="weather_drizzle">Llovizna</string>
+    <string name="weather_rain">Lluvia</string>
+    <string name="weather_snow">Nieve</string>
+    <string name="weather_showers">Chubascos</string>
+    <string name="weather_thunderstorm">Tormenta</string>
+    <string name="weather_varied">Variado</string>
 </resources>

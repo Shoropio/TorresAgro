@@ -3,41 +3,29 @@ package com.torresagro.app.ui.screen
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.material3.Card
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.text.style.*
+import androidx.compose.ui.platform.*
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.font.*
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.layout.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.torresagro.app.R
 import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
 import androidx.compose.material.icons.filled.ChevronRight
@@ -65,18 +53,32 @@ import com.torresagro.app.ui.component.SectionTitle
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     state: AppUiState,
     onCompleteTask: (String) -> Unit,
     onAddParcel: () -> Unit,
     onAddActivity: () -> Unit,
+    onOpenAgriMap: () -> Unit,
     onRefreshWeather: (String) -> Unit,
     onRefreshCurrentLocationWeather: (String, Double, Double) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    val requestCurrentLocationWeather: () -> Unit = {
+        scope.launch {
+            captureCurrentLocation(context)?.let { coords ->
+                onRefreshCurrentLocationWeather("Ubicación actual", coords.first, coords.second)
+            } ?: run {
+                state.parcels.firstOrNull()?.id?.let(onRefreshWeather)
+            }
+        }
+    }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -86,7 +88,7 @@ fun HomeScreen(
                     onRefreshCurrentLocationWeather("Ubicación actual", coords.first, coords.second)
                 }
             }
-        } else if (state.weather?.online != true) {
+        } else if (state.currentLocationWeather?.online != true) {
             state.parcels.firstOrNull()?.id?.let(onRefreshWeather)
         }
     }
@@ -100,19 +102,35 @@ fun HomeScreen(
         )
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            scope.launch {
+                requestCurrentLocationWeather()
+                kotlinx.coroutines.delay(1000)
+                isRefreshing = false
+            }
+        },
+        state = pullToRefreshState,
+        modifier = Modifier.fillMaxSize()
     ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Hola, Agricultor",
+                    text = stringResource(R.string.hello_farmer),
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black)
                 )
                 Text(
-                    text = "Bienvenido a Torres Agro",
+                    text = stringResource(R.string.welcome_message),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -125,19 +143,30 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 InfoCard(
-                    title = "Parcelas",
+                    title = stringResource(R.string.nav_parcels),
                     value = state.parcels.size.toString(),
-                    supporting = "Lotes registrados",
+                    supporting = stringResource(R.string.parcels_subtitle),
                     modifier = Modifier.weight(1f),
                     accent = Color(0xFF4CAF50)
                 )
                 InfoCard(
-                    title = "Tareas",
-                    value = state.tasks.count { !it.completed }.toString(),
-                    supporting = "Pendientes hoy",
+                    title = stringResource(R.string.alerts_title),
+                    value = state.alerts.size.toString(),
+                    supporting = stringResource(R.string.detected_risks),
                     modifier = Modifier.weight(1f),
-                    accent = Color(0xFFFFC107)
+                    accent = if (state.alerts.any { it.severity == com.torresagro.app.domain.model.AlertSeverity.Critical || it.severity == com.torresagro.app.domain.model.AlertSeverity.High }) Color.Red else Color(0xFFFFC107)
                 )
+            }
+        }
+
+        if (state.alerts.isNotEmpty()) {
+            item {
+                SectionTitle(stringResource(R.string.field_alerts))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.alerts.take(3).forEach { alert ->
+                        AgroAlertItem(alert)
+                    }
+                }
             }
         }
 
@@ -156,14 +185,19 @@ fun HomeScreen(
                     ) {
                         Column {
                             Text(
-                                "Clima en tu zona",
+                                stringResource(R.string.weather_in_your_area),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                 fontWeight = FontWeight.Bold
                             )
-                            state.weather?.let {
+                            state.currentLocationWeather?.let {
                                 Text(
                                     it.locationLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                                )
+                                Text(
+                                    formatWeatherUpdatedAt(it.updatedAtEpochMillis, context),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
                                 )
@@ -171,12 +205,12 @@ fun HomeScreen(
                         }
                         if (state.parcels.isNotEmpty()) {
                             IconButton(
-                                onClick = { onRefreshWeather(state.parcels.first().id) },
+                                onClick = requestCurrentLocationWeather,
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.EditCalendar, // Changed from refresh for simplicity if not imported
-                                    contentDescription = "Actualizar",
+                                    contentDescription = stringResource(R.string.update),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -186,7 +220,7 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    state.weather?.let { weather ->
+                    state.currentLocationWeather?.let { weather ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -211,7 +245,7 @@ fun HomeScreen(
                             
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    weather.status,
+                                    weather.statusResId?.let { stringResource(it) } ?: weather.status,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -220,9 +254,9 @@ fun HomeScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    WeatherDetailItem(label = "Humedad", value = "${weather.humidityPercent}%")
+                                    WeatherDetailItem(label = stringResource(R.string.humidity), value = "${weather.humidityPercent}%")
                                     Text("|", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
-                                    WeatherDetailItem(label = "Lluvia", value = "${weather.rainfallMm}mm")
+                                    WeatherDetailItem(label = stringResource(R.string.rainfall), value = "${weather.rainfallMm}mm")
                                 }
                             }
                         }
@@ -232,7 +266,7 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "Crea una parcela para ver el clima local.",
+                                stringResource(R.string.weather_not_available),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                                 textAlign = TextAlign.Center
@@ -244,29 +278,43 @@ fun HomeScreen(
         }
 
         item {
-            SectionTitle("Acciones rápidas")
+            SectionTitle(stringResource(R.string.farm_dashboard))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 QuickActionItem(
-                    title = "Añadir Lote",
-                    icon = Icons.Default.AddLocation,
-                    onClick = onAddParcel,
+                    title = stringResource(R.string.ndvi_map),
+                    icon = Icons.Default.Map,
+                    onClick = onOpenAgriMap,
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionItem(
-                    title = "Actividad",
-                    icon = Icons.Default.EditCalendar,
-                    onClick = onAddActivity,
+                    title = stringResource(R.string.new_lot),
+                    icon = Icons.Default.AddLocation,
+                    onClick = onAddParcel,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
 
+        if (state.recommendations.isNotEmpty()) {
+            item {
+                SectionTitle(stringResource(R.string.smart_recommendations))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    items(state.recommendations) { rec ->
+                        RecommendationCard(rec)
+                    }
+                }
+            }
+        }
+
         if (state.tasks.any { !it.completed }) {
             item {
-                SectionTitle("Próximas tareas")
+                SectionTitle(stringResource(R.string.next_tasks))
             }
             items(state.tasks.filter { !it.completed }.take(3), key = { it.id }) { task ->
                 TaskMinimalCard(task = task, onCompleteTask = onCompleteTask)
@@ -274,15 +322,15 @@ fun HomeScreen(
         }
 
         item {
-            SectionTitle("Consejos del día")
+            SectionTitle(stringResource(R.string.tips_of_the_day))
         }
         items(state.tips.take(2), key = { "${it.cropType.name}-${it.stage}" }) { tip ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "${tip.cropType.displayName} • ${tip.stage}",
                         style = MaterialTheme.typography.labelMedium,
@@ -293,6 +341,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -340,7 +389,7 @@ fun TaskMinimalCard(task: CropTask, onCompleteTask: (String) -> Unit) {
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 modifier = Modifier.height(32.dp)
             ) {
-                Text("Cerrar", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.close_btn), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -358,18 +407,18 @@ fun ParcelsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            SectionTitle("Parcelas", "Cada lote guarda ubicacion, variedad, fecha de siembra e historial.")
+            SectionTitle(stringResource(R.string.nav_parcels), stringResource(R.string.parcels_subtitle))
         }
         item {
             Button(onClick = onAddParcel, modifier = Modifier.fillMaxWidth()) {
-                Text("Agregar parcela")
+                Text(stringResource(R.string.add_parcel_btn))
             }
         }
         items(state.parcels, key = { it.id }) { parcel ->
             ClickableCard(
                 title = parcel.name,
                 subtitle = "${parcel.cropType.displayName} | ${parcel.variety} | ${parcel.sizeHectares} ha",
-                extra = "Siembra: ${parcel.sowingDate} | Cosecha estimada: ${parcel.expectedHarvestDate}",
+                extra = stringResource(R.string.sowing_date_label, parcel.sowingDate) + " | " + stringResource(R.string.expected_harvest_label, parcel.expectedHarvestDate),
                 onClick = { onOpenParcel(parcel.id) }
             )
         }
@@ -381,6 +430,7 @@ fun ParcelsScreen(
 fun ParcelDetailScreen(
     parcel: Parcel?,
     weather: com.torresagro.app.domain.model.WeatherSnapshot?,
+    agriData: com.torresagro.app.domain.model.AgriData?,
     activities: List<ActivityRecord>,
     observations: List<CropObservation>,
     onAddActivity: () -> Unit,
@@ -388,17 +438,21 @@ fun ParcelDetailScreen(
     onEditActivity: (String) -> Unit,
     onAddObservation: () -> Unit,
     onEditObservation: (String) -> Unit,
-    onRefreshWeather: (String) -> Unit
+    onDeleteParcel: (String) -> Unit,
+    onBack: () -> Unit,
+    onRefreshWeather: (String) -> Unit,
+    onRefreshSatellite: () -> Unit
 ) {
     if (parcel == null) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Parcela no encontrada")
+            Text(stringResource(R.string.parcel_detail_not_found))
         }
         return
     }
 
     LaunchedEffect(parcel.id) {
         onRefreshWeather(parcel.id)
+        onRefreshSatellite()
     }
 
     LazyColumn(
@@ -406,28 +460,150 @@ fun ParcelDetailScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { SectionTitle(parcel.name, "${parcel.cropType.displayName} | ${parcel.variety}") }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onAddActivity, modifier = Modifier.fillMaxWidth()) {
-                    Text("Registrar actividad en esta parcela")
-                }
-                Button(onClick = onAddObservation, modifier = Modifier.fillMaxWidth()) {
-                    Text("Registrar monitoreo")
-                }
-                Button(onClick = onEditParcel, modifier = Modifier.fillMaxWidth()) {
-                    Text("Editar esta parcela")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onBack) { Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.back), modifier = Modifier.rotate(180f)) }
+                SectionTitle(parcel.name, "${parcel.cropType.displayName} | ${parcel.variety}")
+            }
+        }
+        
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.satellite_health_ndvi), style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            text = if (agriData != null) "${"%.2f".format(agriData.ndvi)}" else stringResource(R.string.not_available_short),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black,
+                            color = if ((agriData?.ndvi ?: 0.0) > 0.6) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        )
+                    }
+                    VerticalDivider(modifier = Modifier.height(40.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.soil_moisture), style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            text = if (agriData != null) "${"%.1f".format(agriData.soilMoisture)}%" else stringResource(R.string.not_available_short),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
             }
         }
-        weather?.let { parcelWeather ->
+
+        item {
+            SectionTitle(stringResource(R.string.forecast_16_days))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(weather?.forecast16Days ?: emptyList()) { forecast ->
+                    Card(
+                        modifier = Modifier.width(100.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(forecast.date.split("-").last(), style = MaterialTheme.typography.labelSmall)
+                            if (forecast.conditionResId != null) {
+                                Text(stringResource(forecast.conditionResId), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            } else if (forecast.condition.isNotBlank()) {
+                                Text(forecast.condition, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text("${forecast.tempMax.toInt()}°", fontWeight = FontWeight.Bold)
+                            Text("${forecast.tempMin.toInt()}°", style = MaterialTheme.typography.bodySmall)
+                            Text("${forecast.rainMm}mm", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (agriData?.pestPredictions?.isNotEmpty() == true) {
             item {
-                Card {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Clima de esta parcela", fontWeight = FontWeight.Bold)
-                        Text(parcelWeather.locationLabel)
-                        Text("${parcelWeather.temperatureC} C | ${parcelWeather.humidityPercent}% humedad | ${parcelWeather.rainfallMm} mm")
-                        Text(parcelWeather.status)
+                SectionTitle(stringResource(R.string.pest_prediction_title))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    agriData.pestPredictions.forEach { pest ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (pest.probability > 0.6) Color(0xFFFFEBEE) else MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(pest.pestName, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "${(pest.probability * 100).toInt()}%",
+                                        color = if (pest.probability > 0.6) Color.Red else Color.Gray,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                                if (pest.description.isNotBlank()) {
+                                    Text(pest.description, style = MaterialTheme.typography.bodySmall)
+                                }
+                                if (pest.preventiveAction.isNotBlank()) {
+                                    Text(
+                                        stringResource(R.string.preventive_action_label, pest.preventiveAction),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (agriData?.historicalGrids?.isNotEmpty() == true) {
+            item {
+                SectionTitle(stringResource(R.string.historical_precip_title))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(agriData.historicalGrids) { grid ->
+                        Card(
+                            modifier = Modifier.width(120.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(grid.date, style = MaterialTheme.typography.labelSmall)
+                                Text("${grid.precipitation}mm", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("${grid.tempMax.toInt()}° / ${grid.tempMin.toInt()}°", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onRefreshWeather(parcel.id); onRefreshSatellite() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.update_data_weather_sat))
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onEditParcel, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.edit_parcel_btn))
+                    }
+                    OutlinedButton(
+                        onClick = { onDeleteParcel(parcel.id) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text(stringResource(R.string.delete_btn))
                     }
                 }
             }
@@ -464,29 +640,29 @@ fun ParcelDetailScreen(
         item {
             Card {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Ubicacion: ${parcel.locationName}")
-                    Text("Tamano: ${parcel.sizeHectares} hectareas")
-                    Text("Siembra: ${parcel.sowingDate}")
-                    Text("Cosecha estimada: ${parcel.expectedHarvestDate}")
+                    Text(stringResource(R.string.location_label, parcel.locationName))
+                    Text(stringResource(R.string.size_label, parcel.sizeHectares.toString()))
+                    Text(stringResource(R.string.sowing_date_label, parcel.sowingDate))
+                    Text(stringResource(R.string.expected_harvest_label, parcel.expectedHarvestDate))
                     if (parcel.latitude != null && parcel.longitude != null) {
-                        Text("GPS: ${"%.5f".format(parcel.latitude)}, ${"%.5f".format(parcel.longitude)}")
+                        Text(stringResource(R.string.gps_coords, parcel.latitude, parcel.longitude))
                     }
-                    Text(if (parcel.offlinePendingSync) "Pendiente de sincronizar" else "Sincronizada")
+                    Text(if (parcel.offlinePendingSync) stringResource(R.string.sync_pending) else stringResource(R.string.sync_done))
                 }
             }
         }
-        item { SectionTitle("Historial de actividades") }
+        item { SectionTitle(stringResource(R.string.activity_history)) }
         items(activities, key = { it.id }) { activity ->
             Card {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(activity.activityType.label, fontWeight = FontWeight.Bold)
-                    Text("Fecha: ${activity.date}")
-                    Text("Costo: $${activity.cost} | Cantidad: ${activity.quantity}")
+                    Text(stringResource(R.string.date_format_label) + ": ${activity.date}")
+                    Text(stringResource(R.string.cost_label) + ": ₡${activity.cost} | " + stringResource(R.string.quantity_label) + ": ${activity.quantity}")
                     Text(activity.notes)
                     activity.photoUri?.let { photoUri ->
                         AsyncImage(
                             model = photoUri,
-                            contentDescription = "Foto de actividad",
+                            contentDescription = stringResource(R.string.activity_photo_desc),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
@@ -498,17 +674,17 @@ fun ParcelDetailScreen(
                         onClick = { onEditActivity(activity.id) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Editar actividad")
+                        Text(stringResource(R.string.edit_activity_title))
                     }
                 }
             }
         }
-        item { SectionTitle("Monitoreo del cultivo") }
+        item { SectionTitle(stringResource(R.string.crop_monitoring)) }
         items(observations, key = { it.id }) { observation ->
             Card {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${observation.cropStage} | ${observation.generalStatus}", fontWeight = FontWeight.Bold)
-                    Text("Fecha: ${observation.date}")
+                    Text(stringResource(R.string.date_format_label) + ": ${observation.date}")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         observation.symptoms.forEach { symptom ->
                             AssistChip(onClick = {}, label = { Text(symptom) })
@@ -518,7 +694,7 @@ fun ParcelDetailScreen(
                     observation.photoUri?.let { photoUri ->
                         AsyncImage(
                             model = photoUri,
-                            contentDescription = "Foto de monitoreo",
+                            contentDescription = stringResource(R.string.monitoring_photo_label),
                             modifier = Modifier.fillMaxWidth().height(220.dp),
                             contentScale = ContentScale.Crop
                         )
@@ -527,7 +703,7 @@ fun ParcelDetailScreen(
                         onClick = { onEditObservation(observation.id) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Editar monitoreo")
+                        Text(stringResource(R.string.edit_observation_title))
                     }
                 }
             }
@@ -548,11 +724,11 @@ fun TasksScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            SectionTitle("Calendario agricola", "Cronograma editable segun cultivo, fecha de siembra y labores pendientes.")
+            SectionTitle(stringResource(R.string.agricultural_calendar), stringResource(R.string.agricultural_calendar_desc))
         }
         item {
             Button(onClick = onAddTask, modifier = Modifier.fillMaxWidth()) {
-                Text("Nueva tarea")
+                Text(stringResource(R.string.new_task))
             }
         }
         items(state.tasks, key = { it.id }) { task ->
@@ -566,17 +742,17 @@ private fun TaskCard(task: CropTask, onCompleteTask: (String) -> Unit, onEditTas
     Card {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(task.title, fontWeight = FontWeight.Bold)
-            Text("Fecha: ${task.dueDate}")
-            Text("Tipo: ${task.taskType.label}")
-            Text("Prioridad: ${task.priority} | ${if (task.completed) "Realizada" else "Pendiente"}")
-            Text("Recordatorio: ${if (task.reminderEnabled) "Activo" else "Inactivo"}")
+            Text(stringResource(R.string.date_format_label) + ": ${task.dueDate}")
+            Text(stringResource(R.string.task_type, task.taskType.label))
+            Text(stringResource(R.string.task_priority, task.priority, if (task.completed) stringResource(R.string.task_completed) else stringResource(R.string.task_pending)))
+            Text(stringResource(R.string.task_reminder, if (task.reminderEnabled) stringResource(R.string.active) else stringResource(R.string.inactive)))
             if (!task.completed) {
                 Button(onClick = { onCompleteTask(task.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Completar")
+                    Text(stringResource(R.string.complete_task))
                 }
             }
             Button(onClick = { onEditTask(task.id) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Editar tarea")
+                Text(stringResource(R.string.edit_task))
             }
         }
     }
@@ -587,24 +763,62 @@ fun InventoryScreen(state: AppUiState) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            SectionTitle("Inventario e insumos", "Semillas, estacas, fertilizantes, bioinsumos y herramientas.")
+            SectionTitle(stringResource(R.string.inventory_and_supplies), stringResource(R.string.inventory_desc))
         }
         items(state.inventory, key = { it.id }) { item ->
             val lowStock = item.stock <= item.minimumStock
             Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (lowStock) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface
-                )
+                    containerColor = if (lowStock) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f) 
+                                     else MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(item.name, fontWeight = FontWeight.Bold)
-                    Text("${item.stock} ${item.unit} disponibles")
-                    Text("Minimo sugerido: ${item.minimumStock} ${item.unit}")
-                    if (lowStock) {
-                        Text("Alerta: este insumo esta por agotarse.")
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.size(48.dp).background(
+                            if (lowStock) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.1f)
+                            else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            CircleShape
+                        ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.SquareFoot, // Placeholder icon
+                            contentDescription = null,
+                            tint = if (lowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.current_stock_label, item.stock.toString(), item.unit),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (lowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (lowStock) {
+                            Text(
+                                stringResource(R.string.restock_soon, item.minimumStock.toString()),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Text(
+                                stringResource(R.string.suggested_minimum, item.minimumStock.toString(), item.unit),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
                     }
                 }
             }
@@ -617,19 +831,47 @@ fun ReportsScreen(state: AppUiState) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            SectionTitle("Produccion y rentabilidad", "Comparacion simple entre cultivos y costos por parcela.")
+            SectionTitle(stringResource(R.string.production_profitability), stringResource(R.string.analysis_desc))
         }
         items(state.harvests, key = { it.parcelId }) { report ->
-            Card {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(report.cropType.displayName, fontWeight = FontWeight.Bold)
-                    Text("Cosechado: ${report.harvestedKg} kg")
-                    Text("Costo total: $${report.totalCost}")
-                    Text("Ingreso estimado: $${report.estimatedIncome}")
-                    Text("Ganancia: $${report.profit}")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column {
+                            Text(report.cropType.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                            Text(stringResource(R.string.harvest_label, report.harvestedKg), style = MaterialTheme.typography.labelMedium)
+                        }
+                        Box(
+                            modifier = Modifier.background(Color(0xFFE8F5E9), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(stringResource(R.string.profitable), color = Color(0xFF2E7D32), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text(stringResource(R.string.invested_cost), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("₡${report.totalCost}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(stringResource(R.string.net_profit), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("₡${report.profit}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF2E7D32))
+                        }
+                    }
                 }
             }
         }
@@ -650,4 +892,146 @@ fun WeatherDetailItem(label: String, value: String) {
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
+}
+
+@Composable
+fun AgroAlertItem(alert: com.torresagro.app.domain.model.AgroAlert) {
+    val color = when (alert.severity) {
+        com.torresagro.app.domain.model.AlertSeverity.Critical -> Color.Red
+        com.torresagro.app.domain.model.AlertSeverity.High -> Color(0xFFE65100)
+        com.torresagro.app.domain.model.AlertSeverity.Medium -> Color(0xFFFFB300)
+        com.torresagro.app.domain.model.AlertSeverity.Low -> Color(0xFF2E7D32)
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+            Text(alert.message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
+        }
+    }
+}
+
+@Composable
+fun RecommendationCard(rec: com.torresagro.app.domain.model.Recommendation) {
+    val icon = when (rec.type) {
+        com.torresagro.app.domain.model.RecommendationType.Irrigation -> Icons.Default.SquareFoot // Placeholder
+        com.torresagro.app.domain.model.RecommendationType.Sowing -> Icons.Default.AddLocation
+        else -> Icons.Default.EditCalendar
+    }
+    
+    Card(
+        modifier = Modifier.width(280.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text(rec.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+            }
+            Text(rec.description, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+fun AgriMapScreen(
+    state: AppUiState,
+    onBack: () -> Unit,
+    onOpenParcel: (String) -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                MapView(ctx).apply {
+                    setTileSource(EsriWorldImageryTileSource)
+                    controller.setZoom(14.0)
+                    
+                    state.parcels.firstOrNull()?.let { p ->
+                        p.latitude?.let { lat -> 
+                            p.longitude?.let { lon -> 
+                                controller.setCenter(GeoPoint(lat, lon))
+                            }
+                        }
+                    }
+
+                    state.parcels.forEach { parcel ->
+                        if (parcel.boundary.isNotEmpty()) {
+                            val pts = parcel.boundary.map { GeoPoint(it.first, it.second) }
+                            val polygon = Polygon(this)
+                            polygon.points = pts
+                            
+                            val agri = state.parcelAgriData[parcel.id]
+                            val ndvi = agri?.ndvi ?: 0.5
+                            
+                            val color = when {
+                                ndvi > 0.7 -> 0x882E7D32
+                                ndvi > 0.5 -> 0x884CAF50
+                                ndvi > 0.3 -> 0x88FFC107
+                                else -> 0x88E65100
+                            }
+                            
+                            polygon.fillPaint.color = color.toInt()
+                            polygon.outlinePaint.color = 0xFFFFFFFF.toInt()
+                            polygon.outlinePaint.strokeWidth = 3f
+                            polygon.title = "${parcel.name}\nNDVI: ${"%.2f".format(ndvi)}"
+                            polygon.setOnClickListener { _, _, _ ->
+                                onOpenParcel(parcel.id)
+                                true
+                            }
+                            overlays.add(polygon)
+                        }
+                    }
+                    setMultiTouchControls(true)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        SmallFloatingActionButton(
+            onClick = onBack,
+            modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.back), modifier = Modifier.rotate(180f))
+        }
+
+        Card(
+            modifier = Modifier.padding(16.dp).align(Alignment.BottomEnd),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.ndvi_legend), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                LegendItem(Color(0xFF2E7D32), stringResource(R.string.high_vigor))
+                LegendItem(Color(0xFF4CAF50), stringResource(R.string.medium_vigor))
+                LegendItem(Color(0xFFE65100), stringResource(R.string.low_vigor))
+            }
+        }
+    }
+}
+
+@Composable
+fun LegendItem(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(modifier = Modifier.size(12.dp).background(color, RoundedCornerShape(2.dp)))
+        Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+private fun formatWeatherUpdatedAt(updatedAtEpochMillis: Long, context: android.content.Context): String {
+    val zone = ZoneId.systemDefault()
+    val dateTime = Instant.ofEpochMilli(updatedAtEpochMillis).atZone(zone)
+    val today = Instant.now().atZone(zone).toLocalDate()
+    val pattern = if (dateTime.toLocalDate() == today) "HH:mm" else "dd/MM HH:mm"
+    val formattedTime = dateTime.format(DateTimeFormatter.ofPattern(pattern))
+    return context.getString(R.string.updated_at, formattedTime)
 }
