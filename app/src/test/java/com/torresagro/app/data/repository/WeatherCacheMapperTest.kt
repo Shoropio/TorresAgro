@@ -17,7 +17,8 @@ class WeatherCacheMapperTest {
             temperatureC = 31,
             humidityPercent = 64,
             online = false,
-            updatedAtEpochMillis = 1_713_456_789_000
+            updatedAtEpochMillis = 1_713_456_789_000,
+            userId = "test_user"
         )
 
         val snapshot = entity.toDomain()

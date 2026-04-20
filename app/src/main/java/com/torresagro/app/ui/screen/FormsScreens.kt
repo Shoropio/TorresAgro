@@ -456,6 +456,16 @@ fun NewActivityScreen(
         }
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val tempUri = createTempImageUri(context)
+            cameraUri = tempUri
+            cameraLauncher.launch(tempUri)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -560,11 +570,7 @@ fun NewActivityScreen(
                         Text(stringResource(R.string.choose_gallery_btn))
                     }
                     Button(
-                        onClick = {
-                            val tempUri = createTempImageUri(context)
-                            cameraUri = tempUri
-                            cameraLauncher.launch(tempUri)
-                        },
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -870,6 +876,16 @@ fun ObservationFormScreen(
         if (success) photoUri = cameraUri?.toString()
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val tempUri = createTempImageUri(context)
+            cameraUri = tempUri
+            cameraLauncher.launch(tempUri)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -974,11 +990,7 @@ fun ObservationFormScreen(
                         Text(stringResource(R.string.choose_gallery_btn))
                     }
                     Button(
-                        onClick = {
-                            val tempUri = createTempImageUri(context)
-                            cameraUri = tempUri
-                            cameraLauncher.launch(tempUri)
-                        },
+                        onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
