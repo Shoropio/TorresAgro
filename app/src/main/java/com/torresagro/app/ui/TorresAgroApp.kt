@@ -9,7 +9,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.navigation.*
 import androidx.navigation.compose.*
+import android.content.Intent
+import androidx.core.content.FileProvider
+import com.torresagro.app.data.report.ReportService
 import com.torresagro.app.data.repository.AgroRepository
 import com.torresagro.app.ui.navigation.AppDestination
 import com.torresagro.app.ui.screen.*
@@ -24,7 +30,8 @@ fun TorresAgroApp(repository: AgroRepository) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val authManager = remember { com.torresagro.app.data.firebase.FirebaseAuthManager() }
-    
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val reportService = remember { ReportService(context) }
     val topLevel = listOf(
         AppDestination.Home,
         AppDestination.Parcels,
@@ -66,7 +73,11 @@ fun TorresAgroApp(repository: AgroRepository) {
         NavHost(
             navController = navController,
             startDestination = AppDestination.Splash.route,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues),
+            enterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) },
+            exitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
+            popExitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) }
         ) {
             composable(AppDestination.Splash.route) {
                 LaunchedEffect(Unit) {
@@ -200,7 +211,23 @@ fun TorresAgroApp(repository: AgroRepository) {
                     },
                     onBack = { navController.popBackStack() },
                     onRefreshWeather = viewModel::refreshWeather,
-                    onRefreshSatellite = { viewModel.refreshSatelliteData(parcelId) }
+                    onRefreshSatellite = { viewModel.refreshSatelliteData(parcelId) },
+                    onGenerateReport = { parcel, agriData ->
+                        val file = reportService.generateParcelReport(parcel, agriData)
+                        if (file != null) {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                file
+                            )
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Compartir Reporte"))
+                        }
+                    }
                 )
             }
             composable(AppDestination.Tasks.route) {

@@ -3,4 +3,7 @@
     <cache-path
         name="activity_images"
         path="activity_images/" />
+    <external-files-path
+        name="parcel_reports"
+        path="Documents/" />
 </paths>
