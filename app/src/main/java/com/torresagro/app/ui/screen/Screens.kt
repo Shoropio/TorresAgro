@@ -110,27 +110,11 @@ fun HomeScreen(
         )
     }
 
-    var isRefreshing by remember { mutableStateOf(false) }
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            scope.launch {
-                requestCurrentLocationWeather()
-                kotlinx.coroutines.delay(1000)
-                isRefreshing = false
-            }
-        },
-        state = pullToRefreshState,
-        modifier = Modifier.fillMaxSize()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 SectionTitle(
@@ -379,7 +363,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.torresagro.app.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -14,6 +15,9 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.navigation.*
 import androidx.navigation.compose.*
+import androidx.compose.material3.pulltorefresh.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.torresagro.app.data.report.ReportService
@@ -24,6 +28,7 @@ import com.torresagro.app.ui.theme.AccentSky
 import com.torresagro.app.ui.viewmodel.AppViewModel
 import com.torresagro.app.ui.viewmodel.AppViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TorresAgroApp(repository: AgroRepository) {
     val navController = rememberNavController()
@@ -41,6 +46,10 @@ fun TorresAgroApp(repository: AgroRepository) {
         AppDestination.Inventory,
         AppDestination.Settings
     )
+
+    val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
 
     Scaffold(
         bottomBar = {
@@ -82,19 +91,35 @@ fun TorresAgroApp(repository: AgroRepository) {
             }
         }
     ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = AppDestination.Splash.route,
-            modifier = Modifier.padding(paddingValues),
-            enterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) },
-            exitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
-            popExitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) }
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                scope.launch {
+                    viewModel.sync()
+                    delay(1500)
+                    isRefreshing = false
+                }
+            },
+            state = pullToRefreshState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
+            NavHost(
+                navController = navController,
+                startDestination = AppDestination.Splash.route,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) },
+                exitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(400)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(400)) },
+                popExitTransition = { fadeOut(animationSpec = tween(400)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(400)) }
+            ) {
             composable(AppDestination.Splash.route) {
                 LaunchedEffect(Unit) {
                     val userId = authManager.currentUid()
                     if (userId != null) {
+                        viewModel.sync()
                         navController.navigate(AppDestination.Home.route) {
                             popUpTo(AppDestination.Splash.route) { inclusive = true }
                         }
@@ -109,6 +134,7 @@ fun TorresAgroApp(repository: AgroRepository) {
             composable(AppDestination.Login.route) {
                 LoginScreen(
                     onLoginSuccess = {
+                        viewModel.sync()
                         navController.navigate(AppDestination.Home.route) {
                             popUpTo(AppDestination.Login.route) { inclusive = true }
                         }
@@ -208,12 +234,12 @@ fun TorresAgroApp(repository: AgroRepository) {
                     activities = state.activities.filter { it.parcelId == parcelId },
                     observations = state.observations.filter { it.parcelId == parcelId },
                     agriData = state.parcelAgriData[parcelId],
-                    onAddActivity = { navController.navigate("${AppDestination.NewActivity.route}/$parcelId") },
+                    onAddActivity = { navController.navigate("${AppDestination.NewActivity.route}?parcelId=$parcelId") },
                     onEditParcel = { navController.navigate("${AppDestination.EditParcel.route}/$parcelId") },
                     onEditActivity = { activityId ->
                         navController.navigate("${AppDestination.EditActivity.route}/$activityId")
                     },
-                    onAddObservation = { navController.navigate("${AppDestination.NewObservation.route}/$parcelId") },
+                    onAddObservation = { navController.navigate("${AppDestination.NewObservation.route}?parcelId=$parcelId") },
                     onEditObservation = { observationId ->
                         navController.navigate("${AppDestination.EditObservation.route}/$observationId")
                     },
@@ -320,8 +346,11 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable("${AppDestination.NewActivity.route}/{parcelId}") { backStackEntry ->
-                val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
+            composable(
+                route = "${AppDestination.NewActivity.route}?parcelId={parcelId}",
+                arguments = listOf(navArgument("parcelId") { defaultValue = "" })
+            ) { backStackEntry ->
+                val parcelId = backStackEntry.arguments?.getString("parcelId") ?: ""
                 NewActivityScreen(
                     parcels = state.parcels,
                     preselectedParcelId = parcelId,
@@ -349,8 +378,11 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable("${AppDestination.NewObservation.route}/{parcelId}") { backStackEntry ->
-                val parcelId = backStackEntry.arguments?.getString("parcelId").orEmpty()
+            composable(
+                route = "${AppDestination.NewObservation.route}?parcelId={parcelId}",
+                arguments = listOf(navArgument("parcelId") { defaultValue = "" })
+            ) { backStackEntry ->
+                val parcelId = backStackEntry.arguments?.getString("parcelId") ?: ""
                 ObservationFormScreen(
                     parcels = state.parcels,
                     preselectedParcelId = parcelId,
@@ -386,6 +418,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                     },
                     onBack = { navController.popBackStack() }
                 )
+            }
             }
         }
     }
