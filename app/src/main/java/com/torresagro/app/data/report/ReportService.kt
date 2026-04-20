@@ -15,7 +15,6 @@ class ReportService(private val context: Context) {
 
     fun generateParcelReport(parcel: Parcel, agriData: AgriData?): File? {
         val pdfDocument = PdfDocument()
-        val paint = Paint()
         val titlePaint = Paint().apply {
             textSize = 24f
             isFakeBoldText = true

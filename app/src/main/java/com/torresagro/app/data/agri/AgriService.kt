@@ -85,7 +85,12 @@ class AgriService {
         }
     }
 
-    suspend fun checkPests(parcelId: String, lat: Double, lon: Double): List<PestPrediction> = withContext(Dispatchers.IO) {
+    @Suppress("UNUSED_PARAMETER")
+    suspend fun checkPests(
+        parcelId: String,
+        lat: Double,
+        lon: Double
+    ): List<PestPrediction> = withContext(Dispatchers.IO) {
         // En lugar de una API de pago, usamos nuestro AgroEngine local
         // que ya hemos configurado previamente.
         emptyList() 
