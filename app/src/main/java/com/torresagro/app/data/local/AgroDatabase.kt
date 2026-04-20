@@ -25,7 +25,7 @@ import com.torresagro.app.data.local.entity.WeatherCacheEntity
         WeatherCacheEntity::class,
         AgriDataEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AgroDatabase : RoomDatabase() {
