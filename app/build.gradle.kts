@@ -37,9 +37,19 @@ android {
         buildConfigField("String", "VISUAL_CROSSING_API_KEY", "\"${localProperties.getProperty("visualCrossingApiKey", "")}\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(localProperties.getProperty("release.keystoreFile", ""))
+            storePassword = localProperties.getProperty("release.keystorePassword", "")
+            keyAlias = localProperties.getProperty("release.keyAlias", "")
+            keyPassword = localProperties.getProperty("release.keyPassword", "")
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
