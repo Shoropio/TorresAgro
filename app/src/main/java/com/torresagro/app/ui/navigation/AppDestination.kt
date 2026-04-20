@@ -28,4 +28,5 @@ sealed class AppDestination(val route: String, @StringRes val label: Int) {
     
     data object Settings : AppDestination("settings", R.string.nav_settings)
     data object MapParcel : AppDestination("map_parcel", R.string.map_title)
+    data object AgriMap : AppDestination("agri_map", R.string.map_title)
 }

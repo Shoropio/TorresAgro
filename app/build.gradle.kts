@@ -5,6 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
 }
 
 val localProperties = Properties().apply {
@@ -32,6 +33,8 @@ android {
         buildConfigField("String", "FIREBASE_STORAGE_BUCKET", "\"${localProperties.getProperty("firebase.storageBucket", "")}\"")
         buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"${localProperties.getProperty("firebase.gcmSenderId", "")}\"")
         buildConfigField("String", "FIREBASE_WEB_CLIENT_ID", "\"${localProperties.getProperty("firebase.webClientId", "TU_WEB_CLIENT_ID_AKI")}\"")
+        buildConfigField("String", "OPEN_WEATHER_API_KEY", "\"${localProperties.getProperty("openWeatherApiKey", "")}\"")
+        buildConfigField("String", "VISUAL_CROSSING_API_KEY", "\"${localProperties.getProperty("visualCrossingApiKey", "")}\"")
     }
 
     buildTypes {
@@ -71,7 +74,7 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     val firebaseBom = platform("com.google.firebase:firebase-bom:34.12.0")
 
     // TODO: Add the dependencies for Firebase products you want to use

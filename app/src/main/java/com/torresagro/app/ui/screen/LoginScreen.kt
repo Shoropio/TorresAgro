@@ -1,6 +1,5 @@
 package com.torresagro.app.ui.screen
 
-import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,7 +20,6 @@ import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.torresagro.app.BuildConfig
 import com.torresagro.app.R
 import kotlinx.coroutines.launch
 
@@ -75,14 +73,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                                 val googleIdOption = GetGoogleIdOption.Builder()
                                     .setFilterByAuthorizedAccounts(false)
-                                    .setServerClientId(BuildConfig.FIREBASE_WEB_CLIENT_ID) 
+                                    .setServerClientId(com.torresagro.app.BuildConfig.FIREBASE_WEB_CLIENT_ID) 
                                     .build()
 
                                 val request = GetCredentialRequest.Builder()
                                     .addCredentialOption(googleIdOption)
                                     .build()
 
-                                val result = credentialManager.getCredential(
+                                credentialManager.getCredential(
                                     context = context,
                                     request = request
                                 )
@@ -116,6 +114,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            Text(
+                text = stringResource(R.string.copyright),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.torresagro.app.R
 import androidx.compose.ui.viewinterop.AndroidView
 import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import com.torresagro.app.ui.util.AreaCalculator
@@ -73,18 +76,18 @@ fun ParcelMapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mapear Parcela (Libre)") },
+                title = { Text(stringResource(R.string.map_title_free)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { if (points.isNotEmpty()) points = points.dropLast(1) }) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Deshacer")
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.undo))
                     }
                     IconButton(onClick = { points = emptyList() }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear))
                     }
                 }
             )
@@ -107,11 +110,17 @@ fun ParcelMapScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Área Calculada", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.calculated_area), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
-                                "%.2f Hectáreas".format(area),
-                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                                stringResource(R.string.hectares_format, area),
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
                                 color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                stringResource(R.string.points_marked, points.size),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (points.size < 3) MaterialTheme.colorScheme.error else Color(0xFF2E7D32),
+                                fontWeight = FontWeight.Bold
                             )
                         }
                         Button(
@@ -121,80 +130,112 @@ fun ParcelMapScreen(
                         ) {
                             Icon(Icons.Default.Done, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Confirmar")
+                            Text(stringResource(R.string.confirm_btn))
                         }
                     }
                     Text(
-                        "Toca el mapa para marcar los límites. Usando mapas satelitales libres.",
+                        stringResource(R.string.map_instructions),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
-    ) { padding ->
-        AndroidView(
-            factory = { ctx ->
-                MapView(ctx).apply {
-                    setTileSource(EsriWorldImageryTileSource)
-                    setMultiTouchControls(true)
-                    controller.setZoom(16.0)
-                    minZoomLevel = 3.0
-                    maxZoomLevel = 19.0
-                    // Ensure the map can load tiles online
-                    isVerticalMapRepetitionEnabled = false
-                    isHorizontalMapRepetitionEnabled = false
+    )
+{ padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            AndroidView(
+                factory = { ctx ->
+                    MapView(ctx).apply {
+                        setTileSource(EsriWorldImageryTileSource)
+                        setMultiTouchControls(true)
+                        controller.setZoom(16.0)
+                        minZoomLevel = 3.0
+                        maxZoomLevel = 19.0
+                        isVerticalMapRepetitionEnabled = false
+                        isHorizontalMapRepetitionEnabled = false
+                        if (points.isNotEmpty()) {
+                            controller.setCenter(points.first())
+                        } else if (currentCenter != null) {
+                            controller.setCenter(currentCenter)
+                        } else {
+                            controller.setCenter(GeoPoint(10.35, -83.84)) // Costa Rica default
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                update = { mapView ->
                     if (points.isNotEmpty()) {
-                        controller.setCenter(points.first())
-                    } else if (currentCenter != null) {
-                        controller.setCenter(currentCenter)
+                        // Keep center on first point if mapping
                     } else {
-                        controller.setCenter(GeoPoint(19.4326, -99.1332))
+                        currentCenter?.let { mapView.controller.animateTo(it) }
                     }
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            update = { mapView ->
-                if (points.isNotEmpty()) {
-                    mapView.controller.animateTo(points.first())
-                } else {
-                    currentCenter?.let { mapView.controller.animateTo(it) }
-                }
-                mapView.overlays.clear()
-                
-                // Add points/markers
-                points.forEachIndexed { index, geoPoint ->
-                    val marker = Marker(mapView)
-                    marker.position = geoPoint
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    marker.title = "Punto ${index + 1}"
-                    mapView.overlays.add(marker)
-                }
-                
-                // Add Polygon
-                if (points.size >= 2) {
-                    val polygon = Polygon(mapView)
-                    polygon.points = points
-                    polygon.fillPaint.color = 0x444CAF50.toInt()
-                    polygon.outlinePaint.color = 0xFF4CAF50.toInt()
-                    polygon.outlinePaint.strokeWidth = 4f
-                    mapView.overlays.add(polygon)
-                }
-                
-                // Click listener to add points
-                val mapEventsReceiver = object : MapEventsReceiver {
-                    override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                        points = points + p
-                        return true
+                    mapView.overlays.clear()
+                    
+                    // Add points/markers
+                    points.forEachIndexed { index, geoPoint ->
+                        val marker = Marker(mapView)
+                        marker.position = geoPoint
+                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        marker.title = context.getString(R.string.point_index, index + 1)
+                        mapView.overlays.add(marker)
                     }
-                    override fun longPressHelper(p: GeoPoint): Boolean = false
+                    
+                    // Add Polygon
+                    if (points.size >= 2) {
+                        val polygon = Polygon(mapView)
+                        polygon.points = points
+                        polygon.fillPaint.color = 0x444CAF50.toInt()
+                        polygon.outlinePaint.color = 0xFF4CAF50.toInt()
+                        polygon.outlinePaint.strokeWidth = 4f
+                        mapView.overlays.add(polygon)
+                    }
+                    
+                    // Click listener to add points
+                    val mapEventsReceiver = object : MapEventsReceiver {
+                        override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                            points = points + p
+                            return true
+                        }
+                        override fun longPressHelper(p: GeoPoint): Boolean = false
+                    }
+                    mapView.overlays.add(MapEventsOverlay(mapEventsReceiver))
+                    
+                    mapView.invalidate()
                 }
-                mapView.overlays.add(MapEventsOverlay(mapEventsReceiver))
-                
-                mapView.invalidate()
+            )
+
+            // FABs for Map Controls
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Undo Button
+                SmallFloatingActionButton(
+                    onClick = { if (points.isNotEmpty()) points = points.dropLast(1) },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.undo))
+                }
+
+                // My Location Button
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            captureCurrentLocation(context)?.let { coords ->
+                                currentCenter = GeoPoint(coords.first, coords.second)
+                            }
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Icon(Icons.Default.MyLocation, contentDescription = stringResource(R.string.my_location))
+                }
             }
-        )
+        }
     }
 }

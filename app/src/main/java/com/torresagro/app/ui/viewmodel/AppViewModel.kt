@@ -142,6 +142,12 @@ class AppViewModel(
         }
     }
 
+    fun refreshSatelliteData(parcelId: String) {
+        viewModelScope.launch {
+            repository.refreshSatelliteData(parcelId)
+        }
+    }
+
     fun addObservation(
         parcelId: String,
         date: String,
