@@ -36,7 +36,33 @@ object AgroEngine {
             ))
         }
 
-        // 3. Salud del cultivo (NDVI bajo)
+        // 3. Alta evapotranspiración (ET0 > 6.0 mm/día)
+        weather.evapotranspiration?.let { et0 ->
+            if (et0 > 6.0) {
+                alerts.add(AgroAlert(
+                    id = "et0_${System.currentTimeMillis()}",
+                    type = AlertType.HeatStress,
+                    message = "Alta Evapotranspiración ($et0 mm/día). Pérdida de humedad acelerada.",
+                    severity = AlertSeverity.Medium,
+                    timestamp = System.currentTimeMillis()
+                ))
+            }
+        }
+
+        // 4. Temperatura del suelo alta (> 30°C)
+        weather.soilTemperature?.let { st ->
+            if (st > 30.0) {
+                alerts.add(AgroAlert(
+                    id = "soil_temp_${System.currentTimeMillis()}",
+                    type = AlertType.HeatStress,
+                    message = "Temperatura de Suelo Alta ($st°C). Impacto en sistema radicular.",
+                    severity = AlertSeverity.Low,
+                    timestamp = System.currentTimeMillis()
+                ))
+            }
+        }
+
+        // 5. Salud del cultivo (NDVI bajo)
         agri?.let {
             if (it.ndvi < 0.4) {
                 alerts.add(AgroAlert(

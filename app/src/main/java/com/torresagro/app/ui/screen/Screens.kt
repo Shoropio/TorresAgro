@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.key
 import androidx.compose.ui.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.platform.*
@@ -34,6 +35,8 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.TipsAndUpdates
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
@@ -164,7 +167,9 @@ fun HomeScreen(
                 SectionTitle(stringResource(R.string.field_alerts))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.alerts.take(3).forEach { alert ->
-                        AgroAlertItem(alert)
+                        key(alert.id) {
+                            AgroAlertItem(alert)
+                        }
                     }
                 }
             }
@@ -441,7 +446,8 @@ fun ParcelDetailScreen(
     onDeleteParcel: (String) -> Unit,
     onBack: () -> Unit,
     onRefreshWeather: (String) -> Unit,
-    onRefreshSatellite: () -> Unit
+    onRefreshSatellite: () -> Unit,
+    onGenerateReport: (Parcel, AgriData?) -> Unit
 ) {
     if (parcel == null) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -480,7 +486,7 @@ fun ParcelDetailScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.satellite_health_ndvi), style = MaterialTheme.typography.labelSmall)
                         Text(
-                            text = if (agriData != null) "${"%.2f".format(agriData.ndvi)}" else stringResource(R.string.not_available_short),
+                            text = if (agriData != null && agriData.ndvi > 0) "${"%.2f".format(agriData.ndvi)}" else stringResource(R.string.not_available_short),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Black,
                             color = if ((agriData?.ndvi ?: 0.0) > 0.6) Color(0xFF2E7D32) else Color(0xFFE65100)
@@ -490,7 +496,7 @@ fun ParcelDetailScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.soil_moisture), style = MaterialTheme.typography.labelSmall)
                         Text(
-                            text = if (agriData != null) "${"%.1f".format(agriData.soilMoisture)}%" else stringResource(R.string.not_available_short),
+                            text = if (agriData != null && agriData.soilMoisture > 0) "${"%.1f".format(agriData.soilMoisture)}%" else stringResource(R.string.not_available_short),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Black
                         )
@@ -502,7 +508,10 @@ fun ParcelDetailScreen(
         item {
             SectionTitle(stringResource(R.string.forecast_16_days))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(weather?.forecast16Days ?: emptyList()) { forecast ->
+                items(
+                    items = weather?.forecast16Days ?: emptyList(),
+                    key = { it.date }
+                ) { forecast ->
                     Card(
                         modifier = Modifier.width(100.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -570,7 +579,7 @@ fun ParcelDetailScreen(
             item {
                 SectionTitle(stringResource(R.string.historical_precip_title))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(agriData.historicalGrids) { grid ->
+                    items(agriData.historicalGrids, key = { it.date }) { grid ->
                         Card(
                             modifier = Modifier.width(120.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
@@ -591,9 +600,24 @@ fun ParcelDetailScreen(
 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onRefreshWeather(parcel.id); onRefreshSatellite() }, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { onRefreshWeather(parcel.id); onRefreshSatellite() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Refresh, null)
+                    Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.update_data_weather_sat))
                 }
+                
+                OutlinedButton(
+                    onClick = { onGenerateReport(parcel, agriData) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PictureAsPdf, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Generar Reporte PDF")
+                }
+                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onEditParcel, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.edit_parcel_btn))
