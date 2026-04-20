@@ -22,15 +22,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.NoteAlt
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
 import com.torresagro.app.R
 import com.torresagro.app.domain.model.*
+import com.torresagro.app.ui.component.EmptyStateCard
 import com.torresagro.app.ui.component.SectionTitle
+import com.torresagro.app.ui.theme.AccentGold
+import com.torresagro.app.ui.theme.AccentSky
 import com.torresagro.app.ui.util.createTempImageUri
 import com.torresagro.app.ui.util.captureCurrentLocation
 import java.time.LocalDate
@@ -60,6 +71,79 @@ fun QuickAccessScreen(onContinue: () -> Unit = {}) {
     ) {
         SectionTitle(stringResource(R.string.quick_access_title), stringResource(R.string.quick_access_desc))
         Button(onClick = onContinue) { Text(stringResource(R.string.enter_panel)) }
+    }
+}
+
+@Composable
+private fun FormHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = stringResource(R.string.back),
+                modifier = Modifier.rotate(180f)
+            )
+        }
+        SectionTitle(title, subtitle)
+    }
+}
+
+@Composable
+private fun FormSection(
+    title: String,
+    subtitle: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                content()
+            }
+        )
+    }
+}
+
+@Composable
+private fun FormStatRow(items: List<Pair<String, String>>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items.forEach { (label, value) ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleSmall)
+            }
+        }
     }
 }
 
@@ -127,104 +211,109 @@ fun NewParcelScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.Default.Map, contentDescription = stringResource(R.string.back), modifier = androidx.compose.ui.Modifier.rotate(180f)) } // Usando Map como fallback de icono
-                SectionTitle(
-                    if (initialParcel == null) stringResource(R.string.new_parcel_title) else stringResource(R.string.edit_parcel_title),
-                    stringResource(R.string.parcel_form_desc)
+            FormHeader(
+                title = if (initialParcel == null) stringResource(R.string.new_parcel_title) else stringResource(R.string.edit_parcel_title),
+                subtitle = stringResource(R.string.parcel_form_desc),
+                onBack = onBack
+            )
+        }
+        item {
+            FormStatRow(
+                listOf(
+                    "Estado" to if (initialParcel == null) "Nueva" else "Edicion",
+                    "Poligono" to boundary.size.toString()
                 )
-            }
-        }
-        item {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.field_name)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = nameError != null,
-                supportingText = nameError?.let { { Text(it) } }
             )
         }
         item {
-            OutlinedTextField(
-                value = locationName,
-                onValueChange = { locationName = it },
-                label = { Text(stringResource(R.string.field_location)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = locationError != null,
-                supportingText = locationError?.let { { Text(it) } }
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            FormSection(title = "Datos generales", subtitle = "Identifica la parcela con informacion clara para operacion y seguimiento.") {
                 OutlinedTextField(
-                    value = sizeText,
-                    onValueChange = { sizeText = it },
-                    label = { Text(stringResource(R.string.field_size_ha)) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.field_name)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it) } },
+                    shape = RoundedCornerShape(8.dp)
                 )
-                Button(
-                    onClick = { onOpenMap(boundary) },
-                    modifier = Modifier.height(56.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                OutlinedTextField(
+                    value = locationName,
+                    onValueChange = { locationName = it },
+                    label = { Text(stringResource(R.string.field_location)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = locationError != null,
+                    supportingText = locationError?.let { { Text(it) } },
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+        }
+        item {
+            FormSection(title = "Superficie y cultivo", subtitle = "Usa el mapa para definir el poligono y autocalcular el area.") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Map, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.map_btn))
+                    OutlinedTextField(
+                        value = sizeText,
+                        onValueChange = { sizeText = it },
+                        label = { Text(stringResource(R.string.field_size_ha)) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    Button(
+                        onClick = { onOpenMap(boundary) },
+                        modifier = Modifier.height(56.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Icon(Icons.Default.Map, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.map_btn))
+                    }
                 }
-            }
-        }
-        if (sizeError != null) {
-            item {
-                Text(
-                    text = sizeError,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                if (sizeError != null) {
+                    Text(
+                        text = sizeError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                OptionPicker(
+                    title = stringResource(R.string.crop_label),
+                    selectedLabel = cropType.displayName,
+                    options = CropType.entries.map { it.displayName },
+                    onSelect = { selected ->
+                        cropType = CropType.entries.first { it.displayName == selected }
+                    }
+                )
+                OutlinedTextField(
+                    value = variety,
+                    onValueChange = { variety = it },
+                    label = { Text(stringResource(R.string.field_variety)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = varietyError != null,
+                    supportingText = varietyError?.let { { Text(it) } },
+                    shape = RoundedCornerShape(8.dp)
+                )
+                OutlinedTextField(
+                    value = sowingDate,
+                    onValueChange = { sowingDate = it },
+                    label = { Text(stringResource(R.string.field_sowing_date)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = sowingDateError != null,
+                    supportingText = sowingDateError?.let { { Text(it) } },
+                    shape = RoundedCornerShape(8.dp)
                 )
             }
         }
         item {
-            OptionPicker(
-                title = stringResource(R.string.crop_label),
-                selectedLabel = cropType.displayName,
-                options = CropType.entries.map { it.displayName },
-                onSelect = { selected ->
-                    cropType = CropType.entries.first { it.displayName == selected }
-                }
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = variety,
-                onValueChange = { variety = it },
-                label = { Text(stringResource(R.string.field_variety)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = varietyError != null,
-                supportingText = varietyError?.let { { Text(it) } }
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = sowingDate,
-                onValueChange = { sowingDate = it },
-                label = { Text(stringResource(R.string.field_sowing_date)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = sowingDateError != null,
-                supportingText = sowingDateError?.let { { Text(it) } }
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FormSection(title = "Ubicacion", subtitle = "Captura coordenadas para mejorar clima, mapas y trazabilidad.") {
                 Text(
                     if (latitude != null && longitude != null) {
                         stringResource(R.string.coordinates_label, "${"%.5f".format(latitude)}, ${"%.5f".format(longitude)}")
@@ -242,8 +331,11 @@ fun NewParcelScreen(
                             )
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
+                    Icon(Icons.Default.PinDrop, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.use_gps_location))
                 }
             }
@@ -251,7 +343,9 @@ fun NewParcelScreen(
         if (boundary.isNotEmpty()) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = CardDefaults.outlinedCardBorder()
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -269,13 +363,14 @@ fun NewParcelScreen(
             }
         }
         item {
-                Button(
-                    onClick = {
-                        val normalizedSize = parsedSize ?: 0.0
-                        onSave(name, locationName, normalizedSize, cropType, variety, sowingDate, latitude, longitude, boundary)
-                    },
+            Button(
+                onClick = {
+                    val normalizedSize = parsedSize ?: 0.0
+                    onSave(name, locationName, normalizedSize, cropType, variety, sowingDate, latitude, longitude, boundary)
+                },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = parcelFormValid
+                enabled = parcelFormValid,
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Text(if (initialParcel == null) stringResource(R.string.save_parcel) else stringResource(R.string.update_parcel))
             }
@@ -283,7 +378,8 @@ fun NewParcelScreen(
         item {
             OutlinedButton(
                 onClick = onBack,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Text(stringResource(R.string.cancel_btn))
             }
@@ -293,6 +389,7 @@ fun NewParcelScreen(
                 Button(
                     onClick = deleteAction,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text(stringResource(R.string.delete_parcel_btn))
@@ -365,89 +462,101 @@ fun NewActivityScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.Default.Map, contentDescription = stringResource(R.string.back), modifier = Modifier.rotate(180f)) }
-                SectionTitle(
-                    if (initialActivity == null) stringResource(R.string.new_activity_title) else stringResource(R.string.edit_activity_title),
-                    stringResource(R.string.activity_form_desc)
-                )
-            }
+            FormHeader(
+                title = if (initialActivity == null) stringResource(R.string.new_activity_title) else stringResource(R.string.edit_activity_title),
+                subtitle = stringResource(R.string.activity_form_desc),
+                onBack = onBack
+            )
         }
         if (parcels.isEmpty()) {
             item {
-                Text(stringResource(R.string.error_no_parcels_activity), color = MaterialTheme.colorScheme.error)
+                EmptyStateCard(
+                    title = "Necesitas una parcela primero",
+                    description = stringResource(R.string.error_no_parcels_activity),
+                    icon = Icons.Default.Map
+                )
             }
         } else {
             item {
-                OptionPicker(
-                    title = stringResource(R.string.parcel_label),
-                    selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
-                    options = parcels.map { it.name },
-                    onSelect = { selected ->
-                        parcelId = parcels.first { it.name == selected }.id
-                    }
+                FormStatRow(
+                    listOf(
+                        "Tipo" to activityType.label,
+                        "Fecha" to date
+                    )
                 )
             }
             item {
-                OptionPicker(
-                    title = stringResource(R.string.activity_type_label),
-                    selectedLabel = activityType.label,
-                    options = ActivityType.entries.map { it.label },
-                    onSelect = { selected ->
-                        activityType = ActivityType.entries.first { it.label == selected }
-                    }
-                )
+                FormSection(title = "Contexto de actividad", subtitle = "Ubica la labor en la parcela correcta y clasificala bien.") {
+                    OptionPicker(
+                        title = stringResource(R.string.parcel_label),
+                        selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
+                        options = parcels.map { it.name },
+                        onSelect = { selected ->
+                            parcelId = parcels.first { it.name == selected }.id
+                        }
+                    )
+                    OptionPicker(
+                        title = stringResource(R.string.activity_type_label),
+                        selectedLabel = activityType.label,
+                        options = ActivityType.entries.map { it.label },
+                        onSelect = { selected ->
+                            activityType = ActivityType.entries.first { it.label == selected }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text(stringResource(R.string.date_format_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = activityDateError != null,
+                        supportingText = activityDateError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
             }
             item {
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text(stringResource(R.string.date_format_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = activityDateError != null,
-                    supportingText = activityDateError?.let { { Text(it) } }
-                )
+                FormSection(title = "Registro operativo", subtitle = "Guarda costo, cantidad y notas utiles para control y analisis.") {
+                    OutlinedTextField(
+                        value = costText,
+                        onValueChange = { costText = it },
+                        label = { Text(stringResource(R.string.cost_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = costError != null,
+                        supportingText = costError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = { quantity = it },
+                        label = { Text(stringResource(R.string.quantity_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = quantityError != null,
+                        supportingText = quantityError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text(stringResource(R.string.observations_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = notesError != null,
+                        supportingText = notesError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
             }
             item {
-                OutlinedTextField(
-                    value = costText,
-                    onValueChange = { costText = it },
-                    label = { Text(stringResource(R.string.cost_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = costError != null,
-                    supportingText = costError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it },
-                    label = { Text(stringResource(R.string.quantity_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = quantityError != null,
-                    supportingText = quantityError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(stringResource(R.string.observations_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = notesError != null,
-                    supportingText = notesError?.let { { Text(it) } }
-                )
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.photo_support_label), style = MaterialTheme.typography.titleMedium)
+                FormSection(title = stringResource(R.string.photo_support_label), subtitle = "Adjunta evidencia visual si esta actividad la requiere.") {
                     Button(
                         onClick = { galleryLauncher.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
+                        Icon(Icons.Default.NoteAlt, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.choose_gallery_btn))
                     }
                     Button(
@@ -456,8 +565,11 @@ fun NewActivityScreen(
                             cameraUri = tempUri
                             cameraLauncher.launch(tempUri)
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.take_photo_btn))
                     }
                     photoUri?.let { imageUri ->
@@ -466,7 +578,8 @@ fun NewActivityScreen(
                             contentDescription = stringResource(R.string.activity_photo_desc),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp),
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -478,13 +591,14 @@ fun NewActivityScreen(
                         onSave(parcelId, activityType, date, parsedCost ?: 0.0, quantity, notes, photoUri)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = activityFormValid
+                    enabled = activityFormValid,
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(if (initialActivity == null) stringResource(R.string.save_activity_btn) else stringResource(R.string.update_activity_btn))
                 }
             }
             item {
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Text(stringResource(R.string.cancel_btn))
                 }
             }
@@ -492,7 +606,9 @@ fun NewActivityScreen(
                 item {
                     Button(
                         onClick = deleteAction,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text(stringResource(R.string.delete_activity_btn))
                     }
@@ -527,9 +643,12 @@ private fun OptionPicker(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(
+                        type = MenuAnchorType.PrimaryNotEditable,
+                        enabled = true
+                    )
                     .fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(8.dp)
             )
 
             ExposedDropdownMenu(
@@ -578,100 +697,112 @@ fun TaskFormScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.Default.Map, contentDescription = stringResource(R.string.back), modifier = Modifier.rotate(180f)) }
-                SectionTitle(
-                    if (initialTask == null) stringResource(R.string.new_task_title) else stringResource(R.string.edit_task_title),
-                    stringResource(R.string.task_form_desc)
-                )
-            }
+            FormHeader(
+                title = if (initialTask == null) stringResource(R.string.new_task_title) else stringResource(R.string.edit_task_title),
+                subtitle = stringResource(R.string.task_form_desc),
+                onBack = onBack
+            )
         }
         if (parcels.isEmpty()) {
             item {
-                Text(stringResource(R.string.error_no_parcels_task), color = MaterialTheme.colorScheme.error)
+                EmptyStateCard(
+                    title = "Necesitas una parcela primero",
+                    description = stringResource(R.string.error_no_parcels_task),
+                    icon = Icons.Default.Map
+                )
             }
         } else {
             item {
-                OptionPicker(
-                    title = stringResource(R.string.parcel_label),
-                    selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
-                    options = parcels.map { it.name },
-                    onSelect = { selected -> parcelId = parcels.first { it.name == selected }.id }
+                FormStatRow(
+                    listOf(
+                        "Prioridad" to priority,
+                        "Estado" to if (completed) stringResource(R.string.task_done_label) else stringResource(R.string.task_pending_label)
+                    )
                 )
             }
             item {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.task_title_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = titleError != null,
-                    supportingText = titleError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = dueDate,
-                    onValueChange = { dueDate = it },
-                    label = { Text(stringResource(R.string.date_format_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = dueDateError != null,
-                    supportingText = dueDateError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OptionPicker(
-                    title = stringResource(R.string.task_type_label),
-                    selectedLabel = taskType.label,
-                    options = TaskType.entries.map { it.label },
-                    onSelect = { selected -> taskType = TaskType.entries.first { it.label == selected } }
-                )
-            }
-            item {
-                OptionPicker(
-                    title = stringResource(R.string.priority_label),
-                    selectedLabel = priority,
-                    options = listOf(stringResource(R.string.priority_high), stringResource(R.string.priority_medium), stringResource(R.string.priority_low)),
-                    onSelect = { priority = it }
-                )
-            }
-            item {
-                OptionPicker(
-                    title = stringResource(R.string.local_reminder_label),
-                    selectedLabel = if (reminderEnabled) stringResource(R.string.active) else stringResource(R.string.inactive),
-                    options = listOf(stringResource(R.string.active), stringResource(R.string.inactive)),
-                    onSelect = { reminderEnabled = it == context.getString(R.string.active) }
-                )
+                FormSection(title = "Configuracion de tarea", subtitle = "Define que se hara, en que parcela y cuando toca ejecutarlo.") {
+                    OptionPicker(
+                        title = stringResource(R.string.parcel_label),
+                        selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
+                        options = parcels.map { it.name },
+                        onSelect = { selected -> parcelId = parcels.first { it.name == selected }.id }
+                    )
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text(stringResource(R.string.task_title_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = titleError != null,
+                        supportingText = titleError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OutlinedTextField(
+                        value = dueDate,
+                        onValueChange = { dueDate = it },
+                        label = { Text(stringResource(R.string.date_format_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = dueDateError != null,
+                        supportingText = dueDateError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OptionPicker(
+                        title = stringResource(R.string.task_type_label),
+                        selectedLabel = taskType.label,
+                        options = TaskType.entries.map { it.label },
+                        onSelect = { selected -> taskType = TaskType.entries.first { it.label == selected } }
+                    )
+                    OptionPicker(
+                        title = stringResource(R.string.priority_label),
+                        selectedLabel = priority,
+                        options = listOf(stringResource(R.string.priority_high), stringResource(R.string.priority_medium), stringResource(R.string.priority_low)),
+                        onSelect = { priority = it }
+                    )
+                    OptionPicker(
+                        title = stringResource(R.string.local_reminder_label),
+                        selectedLabel = if (reminderEnabled) stringResource(R.string.active) else stringResource(R.string.inactive),
+                        options = listOf(stringResource(R.string.active), stringResource(R.string.inactive)),
+                        onSelect = { reminderEnabled = it == context.getString(R.string.active) }
+                    )
+                }
             }
             if (initialTask != null) {
                 item {
-                    OptionPicker(
-                        title = stringResource(R.string.status_label),
-                        selectedLabel = if (completed) stringResource(R.string.task_done_label) else stringResource(R.string.task_pending_label),
-                        options = listOf(stringResource(R.string.task_pending_label), stringResource(R.string.task_done_label)),
-                        onSelect = { completed = it == context.getString(R.string.task_done_label) }
-                    )
+                    FormSection(title = "Estado", subtitle = "Solo disponible al editar una tarea existente.") {
+                        OptionPicker(
+                            title = stringResource(R.string.status_label),
+                            selectedLabel = if (completed) stringResource(R.string.task_done_label) else stringResource(R.string.task_pending_label),
+                            options = listOf(stringResource(R.string.task_pending_label), stringResource(R.string.task_done_label)),
+                            onSelect = { completed = it == context.getString(R.string.task_done_label) }
+                        )
+                    }
                 }
             }
             item {
                 Button(
                     onClick = { onSave(parcelId, title, dueDate, taskType, priority, reminderEnabled, completed) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = taskFormValid
+                    enabled = taskFormValid,
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(if (initialTask == null) stringResource(R.string.save_task_btn) else stringResource(R.string.update_task_btn))
                 }
             }
             item {
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Text(stringResource(R.string.cancel_btn))
                 }
             }
             onDelete?.let { deleteAction ->
                 item {
-                    Button(onClick = deleteAction, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = deleteAction,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
                         Text(stringResource(R.string.delete_task_btn))
                     }
                 }
@@ -745,106 +876,101 @@ fun ObservationFormScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.Default.Map,
-                        contentDescription = stringResource(R.string.back),
-                        modifier = Modifier.rotate(180f)
-                    )
-                }
-                SectionTitle(
-                    if (initialObservation == null) stringResource(R.string.new_observation_title) else stringResource(R.string.edit_observation_title),
-                    stringResource(R.string.observation_form_desc)
-                )
-            }
+            FormHeader(
+                title = if (initialObservation == null) stringResource(R.string.new_observation_title) else stringResource(R.string.edit_observation_title),
+                subtitle = stringResource(R.string.observation_form_desc),
+                onBack = onBack
+            )
         }
         if (parcels.isEmpty()) {
             item {
-                Text(
-                    stringResource(R.string.error_no_parcels_observation),
-                    color = MaterialTheme.colorScheme.error
+                EmptyStateCard(
+                    title = "Necesitas una parcela primero",
+                    description = stringResource(R.string.error_no_parcels_observation),
+                    icon = Icons.Default.Map
                 )
             }
         } else {
             item {
-                OptionPicker(
-                    title = stringResource(R.string.parcel_label),
-                    selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
-                    options = parcels.map { it.name },
-                    onSelect = { selected -> parcelId = parcels.first { it.name == selected }.id }
+                FormStatRow(
+                    listOf(
+                        "Estado" to generalStatus,
+                        "Sintomas" to selectedSymptoms.size.toString()
+                    )
                 )
             }
             item {
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text(stringResource(R.string.date_format_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = observationDateError != null,
-                    supportingText = observationDateError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = cropStage,
-                    onValueChange = { cropStage = it },
-                    label = { Text(stringResource(R.string.crop_stage_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = cropStageError != null,
-                    supportingText = cropStageError?.let { { Text(it) } }
-                )
-            }
-            item {
-                OptionPicker(
-                    title = stringResource(R.string.general_status_label),
-                    selectedLabel = generalStatus,
-                    options = listOf(stringResource(R.string.status_good), stringResource(R.string.status_regular), stringResource(R.string.status_alert)),
-                    onSelect = {
-                        generalStatus = it
-                        recommendation =
-                            ObservationSupport.recommendationFor(selectedSymptoms, generalStatus)
-                    }
-                )
-            }
-            item {
-                MultiOptionPicker(
-                    title = stringResource(R.string.observed_symptoms_label),
-                    selected = selectedSymptoms,
-                    options = ObservationSupport.symptomsCatalog,
-                    onToggle = { symptom ->
-                        selectedSymptoms = if (symptom in selectedSymptoms) {
-                            selectedSymptoms - symptom
-                        } else {
-                            selectedSymptoms + symptom
+                FormSection(title = "Monitoreo de campo", subtitle = "Registra etapa, estatus y sintomas observados en esta visita.") {
+                    OptionPicker(
+                        title = stringResource(R.string.parcel_label),
+                        selectedLabel = parcels.firstOrNull { it.id == parcelId }?.name.orEmpty(),
+                        options = parcels.map { it.name },
+                        onSelect = { selected -> parcelId = parcels.first { it.name == selected }.id }
+                    )
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text(stringResource(R.string.date_format_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = observationDateError != null,
+                        supportingText = observationDateError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OutlinedTextField(
+                        value = cropStage,
+                        onValueChange = { cropStage = it },
+                        label = { Text(stringResource(R.string.crop_stage_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = cropStageError != null,
+                        supportingText = cropStageError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    OptionPicker(
+                        title = stringResource(R.string.general_status_label),
+                        selectedLabel = generalStatus,
+                        options = listOf(stringResource(R.string.status_good), stringResource(R.string.status_regular), stringResource(R.string.status_alert)),
+                        onSelect = {
+                            generalStatus = it
+                            recommendation =
+                                ObservationSupport.recommendationFor(selectedSymptoms, generalStatus)
                         }
-                        recommendation =
-                            ObservationSupport.recommendationFor(selectedSymptoms, generalStatus)
-                    }
-                )
+                    )
+                    MultiOptionPicker(
+                        title = stringResource(R.string.observed_symptoms_label),
+                        selected = selectedSymptoms,
+                        options = ObservationSupport.symptomsCatalog,
+                        onToggle = { symptom ->
+                            selectedSymptoms = if (symptom in selectedSymptoms) {
+                                selectedSymptoms - symptom
+                            } else {
+                                selectedSymptoms + symptom
+                            }
+                            recommendation =
+                                ObservationSupport.recommendationFor(selectedSymptoms, generalStatus)
+                        }
+                    )
+                    OutlinedTextField(
+                        value = recommendation,
+                        onValueChange = { recommendation = it },
+                        label = { Text(stringResource(R.string.recommendation_label)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = recommendationError != null,
+                        supportingText = recommendationError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
             }
             item {
-                OutlinedTextField(
-                    value = recommendation,
-                    onValueChange = { recommendation = it },
-                    label = { Text(stringResource(R.string.recommendation_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = recommendationError != null,
-                    supportingText = recommendationError?.let { { Text(it) } }
-                )
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.monitoring_photo_label), style = MaterialTheme.typography.titleMedium)
+                FormSection(title = stringResource(R.string.monitoring_photo_label), subtitle = "Agrega una imagen para respaldar el hallazgo de campo.") {
                     Button(
                         onClick = { galleryLauncher.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
+                        Icon(Icons.Default.NoteAlt, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.choose_gallery_btn))
                     }
                     Button(
@@ -853,15 +979,18 @@ fun ObservationFormScreen(
                             cameraUri = tempUri
                             cameraLauncher.launch(tempUri)
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.take_photo_btn))
                     }
                     photoUri?.let { imageUri ->
                         AsyncImage(
                             model = imageUri,
                             contentDescription = stringResource(R.string.observation_form_desc),
-                            modifier = Modifier.fillMaxWidth().height(220.dp),
+                            modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -881,19 +1010,25 @@ fun ObservationFormScreen(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = observationFormValid
+                    enabled = observationFormValid,
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(if (initialObservation == null) stringResource(R.string.save_observation_btn) else stringResource(R.string.update_observation_btn))
                 }
             }
             item {
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Text(stringResource(R.string.cancel_btn))
                 }
             }
             onDelete?.let { deleteAction ->
                 item {
-                    Button(onClick = deleteAction, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = deleteAction,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
                         Text(stringResource(R.string.delete_observation_btn))
                     }
                 }
@@ -915,13 +1050,25 @@ private fun MultiOptionPicker(
             if (selected.isEmpty()) stringResource(R.string.selected_none) else stringResource(R.string.selected_label, selected.joinToString()),
             style = MaterialTheme.typography.bodyMedium
         )
-        Card {
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            border = CardDefaults.outlinedCardBorder()
+        ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 options.forEach { option ->
-                    Button(onClick = { onToggle(option) }, modifier = Modifier.fillMaxWidth()) {
+                    val isSelected = option in selected
+                    OutlinedButton(
+                        onClick = { onToggle(option) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isSelected) AccentSky.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface
+                        )
+                    ) {
                         Text(if (option in selected) stringResource(R.string.remove_label, option) else stringResource(R.string.add_label, option))
                     }
                 }
@@ -929,4 +1076,3 @@ private fun MultiOptionPicker(
         }
     }
 }
-

@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.animation.*
@@ -19,6 +20,7 @@ import com.torresagro.app.data.report.ReportService
 import com.torresagro.app.data.repository.AgroRepository
 import com.torresagro.app.ui.navigation.AppDestination
 import com.torresagro.app.ui.screen.*
+import com.torresagro.app.ui.theme.AccentSky
 import com.torresagro.app.ui.viewmodel.AppViewModel
 import com.torresagro.app.ui.viewmodel.AppViewModelFactory
 
@@ -43,7 +45,10 @@ fun TorresAgroApp(repository: AgroRepository) {
     Scaffold(
         bottomBar = {
             if (currentRoute in topLevel.map { it.route }) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
                     topLevel.forEach { destination ->
                         val icon = when (destination) {
                             AppDestination.Home -> Icons.Outlined.Home
@@ -63,7 +68,14 @@ fun TorresAgroApp(repository: AgroRepository) {
                                 }
                             },
                             icon = { Icon(imageVector = icon, contentDescription = stringResource(destination.label)) },
-                            label = { Text(stringResource(destination.label)) }
+                            label = { Text(stringResource(destination.label)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = AccentSky.copy(alpha = 0.14f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                 }

@@ -1,7 +1,9 @@
 package com.torresagro.app.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.torresagro.app.R
+import com.torresagro.app.ui.component.SectionTitle
+import com.torresagro.app.ui.component.SurfaceStatChip
+import com.torresagro.app.ui.theme.AccentGold
+import com.torresagro.app.ui.theme.AccentSky
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +58,12 @@ fun SettingsScreen(onSignOut: () -> Unit = {}) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.settings_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -61,15 +74,45 @@ fun SettingsScreen(onSignOut: () -> Unit = {}) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                SectionTitle(
+                    title = stringResource(R.string.settings_title),
+                    subtitle = "Ajusta alertas, apariencia y sesion desde un panel mas claro y ordenado."
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SurfaceStatChip(
+                        label = "Alertas",
+                        value = freqOptions[notificationFreq],
+                        icon = Icons.Default.Info,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentSky
+                    )
+                    SurfaceStatChip(
+                        label = "Tema",
+                        value = stringResource(R.string.dark_mode),
+                        icon = Icons.Default.DarkMode,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentGold
+                    )
+                }
+            }
+            item {
                 Text(
                     text = stringResource(R.string.notification_frequency),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
-                Card {
-                    androidx.compose.foundation.layout.Column(modifier = Modifier.padding(8.dp)) {
+                Card(
+                    border = CardDefaults.outlinedCardBorder(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         freqOptions.forEachIndexed { index, option ->
-                            androidx.compose.foundation.layout.Row(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -85,31 +128,37 @@ fun SettingsScreen(onSignOut: () -> Unit = {}) {
             }
 
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.dark_mode)) },
-                    supportingContent = { Text(stringResource(R.string.dark_mode_desc)) },
-                    leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
-                    trailingContent = { Switch(checked = true, onCheckedChange = {}) }
-                )
-                HorizontalDivider()
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.language)) },
-                    supportingContent = { Text(stringResource(R.string.language_name)) },
-                    leadingContent = { Icon(Icons.Default.Language, contentDescription = null) }
-                )
-                HorizontalDivider()
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.about_app)) },
-                    supportingContent = { Text(stringResource(R.string.app_version)) },
-                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
-                )
+                Card(
+                    border = CardDefaults.outlinedCardBorder(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.dark_mode)) },
+                        supportingContent = { Text(stringResource(R.string.dark_mode_desc)) },
+                        leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
+                        trailingContent = { Switch(checked = true, onCheckedChange = {}) }
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.language)) },
+                        supportingContent = { Text(stringResource(R.string.language_name)) },
+                        leadingContent = { Icon(Icons.Default.Language, contentDescription = null) }
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.about_app)) },
+                        supportingContent = { Text(stringResource(R.string.app_version)) },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
+                    )
+                }
             }
 
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onSignOut,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
@@ -119,8 +168,8 @@ fun SettingsScreen(onSignOut: () -> Unit = {}) {
             }
 
             item {
-                Spacer(modifier = Modifier.height(32.dp))
-                androidx.compose.foundation.layout.Column(
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {

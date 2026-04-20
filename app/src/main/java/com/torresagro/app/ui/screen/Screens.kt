@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
 import androidx.compose.material.icons.filled.ChevronRight
@@ -49,8 +50,12 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polygon
 import com.torresagro.app.domain.model.*
 import com.torresagro.app.ui.component.ClickableCard
+import com.torresagro.app.ui.component.EmptyStateCard
 import com.torresagro.app.ui.component.InfoCard
 import com.torresagro.app.ui.component.SectionTitle
+import com.torresagro.app.ui.component.SurfaceStatChip
+import com.torresagro.app.ui.theme.AccentGold
+import com.torresagro.app.ui.theme.AccentSky
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
 import kotlinx.coroutines.launch
@@ -72,6 +77,7 @@ fun HomeScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    val pendingTasks = remember(state.tasks) { state.tasks.count { !it.completed } }
     val requestCurrentLocationWeather: () -> Unit = {
         scope.launch {
             captureCurrentLocation(context)?.let { coords ->
@@ -126,16 +132,30 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource(R.string.hello_farmer),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black)
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                SectionTitle(
+                    title = stringResource(R.string.hello_farmer),
+                    subtitle = stringResource(R.string.welcome_message)
                 )
-                Text(
-                    text = stringResource(R.string.welcome_message),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SurfaceStatChip(
+                        label = "Tareas abiertas",
+                        value = pendingTasks.toString(),
+                        icon = Icons.Default.EditCalendar,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentSky
+                    )
+                    SurfaceStatChip(
+                        label = "Clima",
+                        value = state.currentLocationWeather?.temperatureC?.let { "${it}C" } ?: "--",
+                        icon = Icons.Default.Refresh,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentGold
+                    )
+                }
             }
         }
 
@@ -178,11 +198,11 @@ fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                border = CardDefaults.outlinedCardBorder()
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -222,8 +242,6 @@ fun HomeScreen(
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     state.currentLocationWeather?.let { weather ->
                         Row(
@@ -300,6 +318,12 @@ fun HomeScreen(
                     onClick = onAddParcel,
                     modifier = Modifier.weight(1f)
                 )
+                QuickActionItem(
+                    title = stringResource(R.string.activity_action),
+                    icon = Icons.Default.EditCalendar,
+                    onClick = onAddActivity,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
@@ -324,6 +348,14 @@ fun HomeScreen(
             items(state.tasks.filter { !it.completed }.take(3), key = { it.id }) { task ->
                 TaskMinimalCard(task = task, onCompleteTask = onCompleteTask)
             }
+        } else {
+            item {
+                EmptyStateCard(
+                    title = "Agenda controlada",
+                    description = "No hay tareas pendientes por ahora. Puedes registrar la siguiente actividad cuando la necesites.",
+                    icon = Icons.Default.EditCalendar
+                )
+            }
         }
 
         item {
@@ -332,8 +364,9 @@ fun HomeScreen(
         items(state.tips.take(2), key = { "${it.cropType.name}-${it.stage}" }) { tip ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = CardDefaults.outlinedCardBorder()
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -354,9 +387,10 @@ fun HomeScreen(
 fun QuickActionItem(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -373,11 +407,12 @@ fun QuickActionItem(title: String, icon: ImageVector, onClick: () -> Unit, modif
 fun TaskMinimalCard(task: CropTask, onCompleteTask: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -415,8 +450,40 @@ fun ParcelsScreen(
             SectionTitle(stringResource(R.string.nav_parcels), stringResource(R.string.parcels_subtitle))
         }
         item {
-            Button(onClick = onAddParcel, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SurfaceStatChip(
+                    label = "Parcelas",
+                    value = state.parcels.size.toString(),
+                    icon = Icons.Default.Map,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentSky
+                )
+                SurfaceStatChip(
+                    label = "Alertas",
+                    value = state.alerts.size.toString(),
+                    icon = Icons.Default.Warning,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentGold
+                )
+            }
+        }
+        item {
+            Button(onClick = onAddParcel, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                 Text(stringResource(R.string.add_parcel_btn))
+            }
+        }
+        if (state.parcels.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Sin parcelas registradas",
+                    description = "Crea tu primera parcela para empezar a monitorear clima, actividades y rendimiento.",
+                    icon = Icons.Default.AddLocation,
+                    actionLabel = stringResource(R.string.add_parcel_btn),
+                    onAction = onAddParcel
+                )
             }
         }
         items(state.parcels, key = { it.id }) { parcel ->
@@ -451,7 +518,11 @@ fun ParcelDetailScreen(
 ) {
     if (parcel == null) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.parcel_detail_not_found))
+            EmptyStateCard(
+                title = "Parcela no disponible",
+                description = stringResource(R.string.parcel_detail_not_found),
+                icon = Icons.Default.Map
+            )
         }
         return
     }
@@ -472,11 +543,34 @@ fun ParcelDetailScreen(
                 SectionTitle(parcel.name, "${parcel.cropType.displayName} | ${parcel.variety}")
             }
         }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SurfaceStatChip(
+                    label = "Tamano",
+                    value = "${parcel.sizeHectares} ha",
+                    icon = Icons.Default.SquareFoot,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentSky
+                )
+                SurfaceStatChip(
+                    label = "Actividades",
+                    value = activities.size.toString(),
+                    icon = Icons.Default.EditCalendar,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentGold
+                )
+            }
+        }
         
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                border = CardDefaults.outlinedCardBorder()
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -514,7 +608,9 @@ fun ParcelDetailScreen(
                 ) { forecast ->
                     Card(
                         modifier = Modifier.width(100.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = CardDefaults.outlinedCardBorder()
                     ) {
                         Column(
                             modifier = Modifier.padding(8.dp),
@@ -602,7 +698,8 @@ fun ParcelDetailScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { onRefreshWeather(parcel.id); onRefreshSatellite() },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.Refresh, null)
                     Spacer(Modifier.width(8.dp))
@@ -611,7 +708,8 @@ fun ParcelDetailScreen(
                 
                 OutlinedButton(
                     onClick = { onGenerateReport(parcel, agriData) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.PictureAsPdf, null)
                     Spacer(Modifier.width(8.dp))
@@ -619,12 +717,13 @@ fun ParcelDetailScreen(
                 }
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onEditParcel, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = onEditParcel, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
                         Text(stringResource(R.string.edit_parcel_btn))
                     }
                     OutlinedButton(
                         onClick = { onDeleteParcel(parcel.id) },
                         modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text(stringResource(R.string.delete_btn))
@@ -638,7 +737,8 @@ fun ParcelDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    border = CardDefaults.outlinedCardBorder()
                 ) {
                     AndroidView(
                         factory = { ctx ->
@@ -662,7 +762,7 @@ fun ParcelDetailScreen(
             }
         }
         item {
-            Card {
+            Card(shape = RoundedCornerShape(8.dp), border = CardDefaults.outlinedCardBorder()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.location_label, parcel.locationName))
                     Text(stringResource(R.string.size_label, parcel.sizeHectares.toString()))
@@ -676,8 +776,19 @@ fun ParcelDetailScreen(
             }
         }
         item { SectionTitle(stringResource(R.string.activity_history)) }
+        if (activities.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Sin actividades registradas",
+                    description = "Documenta labores, costos y evidencias para tener la historia operativa de esta parcela.",
+                    icon = Icons.Default.EditCalendar,
+                    actionLabel = stringResource(R.string.activity_action),
+                    onAction = onAddActivity
+                )
+            }
+        }
         items(activities, key = { it.id }) { activity ->
-            Card {
+            Card(shape = RoundedCornerShape(8.dp), border = CardDefaults.outlinedCardBorder()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(activity.activityType.label, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.date_format_label) + ": ${activity.date}")
@@ -696,7 +807,8 @@ fun ParcelDetailScreen(
                     }
                     Button(
                         onClick = { onEditActivity(activity.id) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(stringResource(R.string.edit_activity_title))
                     }
@@ -704,8 +816,19 @@ fun ParcelDetailScreen(
             }
         }
         item { SectionTitle(stringResource(R.string.crop_monitoring)) }
+        if (observations.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Sin observaciones aun",
+                    description = "Agrega hallazgos de campo para dejar trazabilidad del estado del cultivo y sus sintomas.",
+                    icon = Icons.Default.Warning,
+                    actionLabel = stringResource(R.string.crop_monitoring),
+                    onAction = onAddObservation
+                )
+            }
+        }
         items(observations, key = { it.id }) { observation ->
-            Card {
+            Card(shape = RoundedCornerShape(8.dp), border = CardDefaults.outlinedCardBorder()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${observation.cropStage} | ${observation.generalStatus}", fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.date_format_label) + ": ${observation.date}")
@@ -725,7 +848,8 @@ fun ParcelDetailScreen(
                     }
                     Button(
                         onClick = { onEditObservation(observation.id) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(stringResource(R.string.edit_observation_title))
                     }
@@ -751,8 +875,40 @@ fun TasksScreen(
             SectionTitle(stringResource(R.string.agricultural_calendar), stringResource(R.string.agricultural_calendar_desc))
         }
         item {
-            Button(onClick = onAddTask, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SurfaceStatChip(
+                    label = "Pendientes",
+                    value = state.tasks.count { !it.completed }.toString(),
+                    icon = Icons.Default.EditCalendar,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentGold
+                )
+                SurfaceStatChip(
+                    label = "Completadas",
+                    value = state.tasks.count { it.completed }.toString(),
+                    icon = Icons.Default.Refresh,
+                    modifier = Modifier.weight(1f),
+                    accent = AccentSky
+                )
+            }
+        }
+        item {
+            Button(onClick = onAddTask, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                 Text(stringResource(R.string.new_task))
+            }
+        }
+        if (state.tasks.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Calendario sin tareas",
+                    description = "Crea recordatorios y labores para mantener el ciclo agricola siempre bajo control.",
+                    icon = Icons.Default.EditCalendar,
+                    actionLabel = stringResource(R.string.new_task),
+                    onAction = onAddTask
+                )
             }
         }
         items(state.tasks, key = { it.id }) { task ->
@@ -763,19 +919,38 @@ fun TasksScreen(
 
 @Composable
 private fun TaskCard(task: CropTask, onCompleteTask: (String) -> Unit, onEditTask: (String) -> Unit) {
-    Card {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(task.title, fontWeight = FontWeight.Bold)
+    val statusColor = if (task.completed) MaterialTheme.colorScheme.primary else AccentGold
+    Card(shape = RoundedCornerShape(8.dp), border = CardDefaults.outlinedCardBorder()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(task.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(statusColor.copy(alpha = 0.14f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (task.completed) stringResource(R.string.task_completed) else stringResource(R.string.task_pending),
+                        color = statusColor,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             Text(stringResource(R.string.date_format_label) + ": ${task.dueDate}")
             Text(stringResource(R.string.task_type, task.taskType.label))
-            Text(stringResource(R.string.task_priority, task.priority, if (task.completed) stringResource(R.string.task_completed) else stringResource(R.string.task_pending)))
             Text(stringResource(R.string.task_reminder, if (task.reminderEnabled) stringResource(R.string.active) else stringResource(R.string.inactive)))
             if (!task.completed) {
-                Button(onClick = { onCompleteTask(task.id) }, modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { onCompleteTask(task.id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Text(stringResource(R.string.complete_task))
                 }
             }
-            Button(onClick = { onEditTask(task.id) }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { onEditTask(task.id) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                 Text(stringResource(R.string.edit_task))
             }
         }
@@ -1086,25 +1261,40 @@ fun AlertsCenterScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text(
-                    stringResource(R.string.detected_risks),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                SectionTitle(
+                    title = stringResource(R.string.alerts_title),
+                    subtitle = stringResource(R.string.detected_risks)
                 )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SurfaceStatChip(
+                        label = "Alertas",
+                        value = uiState.alerts.size.toString(),
+                        icon = Icons.Default.Warning,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentGold
+                    )
+                    SurfaceStatChip(
+                        label = "Recomendaciones",
+                        value = uiState.recommendations.size.toString(),
+                        icon = Icons.Default.TipsAndUpdates,
+                        modifier = Modifier.weight(1f),
+                        accent = AccentSky
+                    )
+                }
             }
 
             if (uiState.alerts.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Text(
-                            stringResource(R.string.no_pests_detected),
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    EmptyStateCard(
+                        title = "Sin alertas activas",
+                        description = stringResource(R.string.no_pests_detected),
+                        icon = Icons.Default.TipsAndUpdates
+                    )
                 }
             } else {
                 items(uiState.alerts) { alert ->
@@ -1116,6 +1306,7 @@ fun AlertsCenterScreen(
                     
                     Card(
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, color.copy(alpha = 0.5f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -1159,7 +1350,9 @@ fun AlertsCenterScreen(
             items(uiState.recommendations) { rec ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
+                    border = CardDefaults.outlinedCardBorder()
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
