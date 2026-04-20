@@ -1,6 +1,6 @@
-# Torres Agro
+# TorresAgro
 
-Torres Agro es una app Android nativa para gestion agricola en campo, pensada para pequenos y medianos productores que necesitan registrar parcelas, actividades, monitoreo, clima, inventario y tareas desde el telefono, con enfoque local-first y soporte parcial offline.
+TorresAgro es una app Android nativa para gestion agricola en campo, pensada para pequenos y medianos productores que necesitan registrar parcelas, actividades, monitoreo, clima, inventario y tareas desde el telefono, con enfoque local-first y soporte parcial offline.
 
 ## Resumen
 
@@ -298,7 +298,7 @@ Eso significa:
 
 ## Estado actual del producto
 
-Torres Agro ya funciona como base operativa local para captura de informacion en campo y seguimiento de parcelas, con una capa visual mucho mas madura y flujos de formulario mas consistentes.
+TorresAgro ya funciona como base operativa local para captura de informacion en campo y seguimiento de parcelas, con una capa visual mucho mas madura y flujos de formulario mas consistentes.
 
 El siguiente salto natural ya no es de estructura interna, sino de operacion real:
 
