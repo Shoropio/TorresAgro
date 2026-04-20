@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.TipsAndUpdates
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
@@ -42,11 +44,7 @@ import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polygon
-import com.torresagro.app.domain.model.ActivityRecord
-import com.torresagro.app.domain.model.AppUiState
-import com.torresagro.app.domain.model.CropObservation
-import com.torresagro.app.domain.model.CropTask
-import com.torresagro.app.domain.model.Parcel
+import com.torresagro.app.domain.model.*
 import com.torresagro.app.ui.component.ClickableCard
 import com.torresagro.app.ui.component.InfoCard
 import com.torresagro.app.ui.component.SectionTitle
@@ -64,6 +62,7 @@ fun HomeScreen(
     onCompleteTask: (String) -> Unit,
     onAddParcel: () -> Unit,
     onAddActivity: () -> Unit,
+    onAlertsClick: () -> Unit,
     onOpenAgriMap: () -> Unit,
     onRefreshWeather: (String) -> Unit,
     onRefreshCurrentLocationWeather: (String, Double, Double) -> Unit
@@ -154,7 +153,8 @@ fun HomeScreen(
                     value = state.alerts.size.toString(),
                     supporting = stringResource(R.string.detected_risks),
                     modifier = Modifier.weight(1f),
-                    accent = if (state.alerts.any { it.severity == com.torresagro.app.domain.model.AlertSeverity.Critical || it.severity == com.torresagro.app.domain.model.AlertSeverity.High }) Color.Red else Color(0xFFFFC107)
+                    accent = if (state.alerts.any { it.severity == com.torresagro.app.domain.model.AlertSeverity.Critical || it.severity == com.torresagro.app.domain.model.AlertSeverity.High }) Color.Red else Color(0xFFFFC107),
+                    onClick = onAlertsClick
                 )
             }
         }
@@ -1034,4 +1034,126 @@ private fun formatWeatherUpdatedAt(updatedAtEpochMillis: Long, context: android.
     val pattern = if (dateTime.toLocalDate() == today) "HH:mm" else "dd/MM HH:mm"
     val formattedTime = dateTime.format(DateTimeFormatter.ofPattern(pattern))
     return context.getString(R.string.updated_at, formattedTime)
+}
+@Composable
+fun AlertsCenterScreen(
+    uiState: AppUiState,
+    onParcelClick: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text(stringResource(R.string.alerts_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.rotate(180f))
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    stringResource(R.string.detected_risks),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (uiState.alerts.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Text(
+                            stringResource(R.string.no_pests_detected),
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            } else {
+                items(uiState.alerts) { alert ->
+                    val color = when (alert.severity) {
+                        AlertSeverity.Critical -> Color(0xFFD32F2F)
+                        AlertSeverity.High -> Color(0xFFF57C00)
+                        else -> Color(0xFFFBC02D)
+                    }
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, color.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = color,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    alert.severity.name,
+                                    color = color,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            Text(alert.message, style = MaterialTheme.typography.bodyLarge)
+                            
+                            // Encontrar a qué parcela pertenece si es posible (basado en el mensaje por ahora o ID)
+                            // Para esta demo, permitimos ir a las parcelas que podrían tener el problema
+                            TextButton(
+                                onClick = { 
+                                    // Navegar a la primera parcela que coincida o una genérica
+                                    uiState.parcels.firstOrNull()?.id?.let(onParcelClick)
+                                },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text(stringResource(R.string.enter_panel))
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                SectionTitle(stringResource(R.string.smart_recommendations))
+            }
+
+            items(uiState.recommendations) { rec ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.TipsAndUpdates,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(rec.title, fontWeight = FontWeight.Bold)
+                            Text(rec.description, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

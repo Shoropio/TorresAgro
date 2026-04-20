@@ -83,6 +83,13 @@
     <string name="expected_harvest_label">Expected harvest: %1$s</string>
     <string name="polygon_points_label">Mapped polygon: %1$d points</string>
     <string name="autocalculated_area_label">Auto-calculated area: %1$.2f ha</string>
+    <string name="pest_prediction_title">Phytosanitary Report (Agrio)</string>
+    <string name="historical_precip_title">Historical Climate (aWhere)</string>
+    <string name="no_pests_detected">No imminent threats detected.</string>
+    <string name="risk_level_label">Risk Level: %1$s</string>
+    <string name="preventive_action_label">Preventive action: %1$s</string>
+    <string name="delete_btn">Delete</string>
+    <string name="edit_parcel_btn">Edit Parcel</string>
 
     <!-- Map Screen -->
     <string name="map_title">Map Parcel</string>

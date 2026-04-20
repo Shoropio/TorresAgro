@@ -98,6 +98,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onCompleteTask = viewModel::completeTask,
                     onAddParcel = { navController.navigate(AppDestination.NewParcel.route) },
                     onAddActivity = { navController.navigate(AppDestination.NewActivity.route) },
+                    onAlertsClick = { navController.navigate(AppDestination.AlertsCenter.route) },
                     onOpenAgriMap = { navController.navigate(AppDestination.AgriMap.route) },
                     onRefreshWeather = viewModel::refreshWeather,
                     onRefreshCurrentLocationWeather = viewModel::refreshWeatherForCoordinates
@@ -334,6 +335,15 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onDelete = {
                         viewModel.deleteObservation(observationId)
                         navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(AppDestination.AlertsCenter.route) {
+                AlertsCenterScreen(
+                    uiState = state,
+                    onParcelClick = { parcelId ->
+                        navController.navigate("${AppDestination.ParcelDetail.route}/$parcelId")
                     },
                     onBack = { navController.popBackStack() }
                 )
