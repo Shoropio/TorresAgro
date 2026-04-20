@@ -269,22 +269,17 @@ Salida esperada:
 
 ## Releases
 
-### Estado de release actual
-
-El proyecto ya puede generar artifacts `release`, pero todavia no tiene firma de produccion configurada en Gradle ni un keystore de release dentro del flujo del repo.
-
-Eso significa:
-
-- si se genera un artifact `release`, no debe tratarse como publicable a Play Store hasta firmarlo correctamente
-- no existe hoy una configuracion de `signingConfig release` lista para produccion
-- la publicacion final a Play Store sigue bloqueada por firma, assets finales y checklist legal
+- el proyecto ya cuenta con una configuracion de firma de produccion automatizada en Gradle
+- se ha generado un keystore inicial (`release-keystore.jks`) y se han configurado los secretos en `local.properties`
+- la generacion de `bundleRelease` produce ahora un artifact firmado y listo para subir a Play Console
 
 ### Checklist real para produccion
 
-- configurar keystore de release
-- cablear `signingConfig` en `app/build.gradle.kts`
-- validar `applicationId`, nombre final y branding
-- generar AAB firmado
+- [x] configurar keystore de release
+- [x] cablear `signingConfig` en `app/build.gradle.kts`
+- [ ] validar `applicationId`, nombre final y branding
+- [x] generar AAB firmado
+- [x] configurar ofuscación y reducción de código (R8/ProGuard)
 - correr QA de campo en varios dispositivos
 - publicar politica de privacidad
 - preparar ficha de Play Console
