@@ -1,87 +1,178 @@
 # Torres Agro
 
-Aplicacion Android para pequenos y medianos productores de yuca, camote, name, maiz y otros cultivos, pensada para trabajo de campo, uso simple y soporte parcial offline.
+Torres Agro es una app Android nativa para gestion agricola en campo, pensada para pequenos y medianos productores que necesitan registrar parcelas, actividades, monitoreo, clima, inventario y tareas desde el telefono, con enfoque local-first y soporte parcial offline.
 
-## Estado actual
+## Resumen
 
-La app ya compila y genera APK debug.
+- Plataforma: Android
+- Stack: Kotlin, Jetpack Compose, MVVM, Room, WorkManager, Navigation Compose
+- Estado actual: compila en `debug` y `release`
+- Version actual: `1.0.0`
+- Cultivos incluidos en catalogo base: yuca, camote, name, maiz y otros cultivos configurables desde el dominio
 
-APK actual:
+## Caracteristicas principales
 
-- `app/build/outputs/apk/debug/app-debug.apk`
+### Experiencia de app
 
-## Implementado
+- UI/UX renovada con Material 3
+- Navegacion inferior para modulos principales
+- Dashboard con metricas rapidas, alertas, clima y recomendaciones
+- Estados vacios, tarjetas de accion y formularios unificados
+- Flujo optimizado para captura rapida desde campo
 
-### Inicio y panel principal
+### Inicio y dashboard
 
-- Resumen de cultivos activos
-- Resumen de tareas pendientes
-- Alertas rapidas del calendario
-- Clima mostrado en el panel
-- Consulta de clima real por ubicacion de parcela
-- Fallback local cuando no hay internet
+- Resumen de parcelas activas
+- Resumen de alertas detectadas
+- Resumen de tareas abiertas
+- Clima por ubicacion actual o por parcela
+- Recomendaciones agronomicas destacadas
+- Accesos rapidos a mapa, nueva parcela y nueva actividad
+- Pull to refresh para actualizar datos visibles
 
 ### Parcelas
 
 - Crear parcela
 - Editar parcela
 - Eliminar parcela
-- Guardar nombre, ubicacion, tamano, cultivo, variedad y fecha de siembra
-- Captura de coordenadas GPS del dispositivo
-- Calculo automatico de fecha estimada de cosecha
+- Registrar:
+  - nombre
+  - ubicacion
+  - tamano
+  - cultivo
+  - variedad
+  - fecha de siembra
+  - coordenadas GPS
+  - poligono de parcela
+- Calculo automatico de fecha esperada de cosecha
 - Vista de detalle por parcela
+- Vista previa del poligono en mapa
 
-### Actividades
+### Mapa agricola
+
+- Visualizacion de parcelas sobre mapa
+- Coloreado de parcelas por vigor estimado
+- Apertura de detalle desde el mapa
+- Vista de leyenda NDVI
+
+### Actividades de campo
 
 - Crear actividad
 - Editar actividad
 - Eliminar actividad
-- Tipos incluidos: siembra, riego, fertilizacion, fumigacion, deshierbe, cosecha y mano de obra
-- Registro de fecha, costo, cantidad y observaciones
-- Foto desde camara
-- Foto desde galeria
-- Visualizacion de foto en historial de parcela
+- Tipos soportados:
+  - siembra
+  - riego
+  - fertilizacion
+  - fumigacion
+  - deshierbe
+  - cosecha
+  - mano de obra
+- Registro de:
+  - fecha
+  - costo
+  - cantidad
+  - observaciones
+  - foto desde camara
+  - foto desde galeria
+- Visualizacion de historial de actividades por parcela
 
-### Calendario agricola y tareas
+### Tareas y calendario agricola
 
 - Crear tarea
 - Editar tarea
 - Eliminar tarea
-- Marcar tarea como realizada
-- Tipo de tarea, prioridad y fecha
-- Recordatorio local por tarea
+- Marcar tarea como completada
+- Definir:
+  - parcela
+  - titulo
+  - fecha
+  - tipo de tarea
+  - prioridad
+  - recordatorio local
+  - estado
 - Programacion de recordatorios con WorkManager
-- Cancelacion automatica de recordatorios al completar o borrar tareas
+- Cancelacion automatica de recordatorios al completar o eliminar
 
-### Monitoreo por visita
+### Monitoreo agronomico
 
 - Crear monitoreo
 - Editar monitoreo
 - Eliminar monitoreo
-- Registrar etapa del cultivo y estado general
-- Registrar sintomas observados
-- Generar recomendacion basica segun sintomas y estado
-- Adjuntar foto de monitoreo
-- Visualizar monitoreo en detalle de parcela
+- Registrar:
+  - parcela
+  - fecha
+  - etapa del cultivo
+  - estado general
+  - sintomas observados
+  - recomendacion
+  - foto de evidencia
+- Generacion automatica de recomendacion base segun sintomas y estado
+- Historial de observaciones por parcela
+
+### Clima y datos agronomicos
+
+- Consulta de clima por coordenadas
+- Consulta de clima por parcela
+- Pronostico extendido visible en detalle de parcela
+- Humedad de suelo desde Open-Meteo Agriculture
+- Historico basico de precipitacion y temperatura
+- Espacio preparado para prediccion de plagas
+
+### Alertas y recomendaciones
+
+- Centro de alertas
+- Alertas por severidad
+- Recomendaciones mostradas como tarjetas accionables
+- Enlace rapido desde alerta hacia contexto de parcela
 
 ### Inventario
 
-- Vista de inventario e insumos
-- Alerta visual de bajo stock
+- Registro y edicion de insumos
+- Indicadores de stock
+- Alerta visual de bajo inventario
+- Vista resumida de unidades registradas y items activos
 
 ### Reportes
 
-- Vista simple de produccion y rentabilidad
-- Comparacion basica por cultivo/parcela
+- Generacion de reporte PDF por parcela
+- Resumen de cultivo, ubicacion y tamano
+- Indicadores agronomicos disponibles
+- Historico simple de los ultimos dias
+- Compartir PDF desde Android
 
-### Offline / datos locales
+### Offline y persistencia
 
-- Base local con Room
+- Base de datos local con Room
 - Datos semilla iniciales
-- Cola de sincronizacion local (`sync_queue`)
-- Firebase Auth anonimo real
-- Sincronizacion real con Firestore
-- Subida real de fotos a Firebase Storage
+- Cola local de sincronizacion
+- Enfoque local-first
+- Persistencia de entidades principales
+- Soporte para reintento de sincronizacion en trabajos futuros
+
+### Firebase e integracion
+
+- Firebase Analytics
+- Firebase Auth
+- Firestore
+- Firebase Storage
+- Bootstrap preparado desde `local.properties`
+
+## Modulos funcionales
+
+- `Home`
+- `Parcels`
+- `Parcel Detail`
+- `Agri Map`
+- `Tasks`
+- `Inventory`
+- `Alerts`
+- `Settings`
+- Formularios de:
+  - parcela
+  - actividad
+  - tarea
+  - monitoreo
 
 ## Arquitectura
 
@@ -90,15 +181,22 @@ APK actual:
 - MVVM
 - Room
 - WorkManager
-- Navegacion con Navigation Compose
+- Navigation Compose
+- Repositorios para acceso a datos
+- Servicios separados para clima, agronomia, reportes y sincronizacion
 
-Estructura principal:
+## Estructura principal
 
-- `app/src/main/java/com/torresagro/app/ui/`
-- `app/src/main/java/com/torresagro/app/ui/viewmodel/`
+- `app/src/main/java/com/torresagro/app/MainActivity.kt`
+- `app/src/main/java/com/torresagro/app/ui/TorresAgroApp.kt`
+- `app/src/main/java/com/torresagro/app/ui/screen/Screens.kt`
+- `app/src/main/java/com/torresagro/app/ui/screen/FormsScreens.kt`
+- `app/src/main/java/com/torresagro/app/ui/viewmodel/AppViewModel.kt`
 - `app/src/main/java/com/torresagro/app/data/local/`
 - `app/src/main/java/com/torresagro/app/data/repository/`
 - `app/src/main/java/com/torresagro/app/data/weather/`
+- `app/src/main/java/com/torresagro/app/data/agri/`
+- `app/src/main/java/com/torresagro/app/data/report/`
 - `app/src/main/java/com/torresagro/app/domain/model/`
 
 ## Base de datos local
@@ -113,68 +211,98 @@ Tablas actuales:
 6. `harvest_records`
 7. `sync_queue`
 
-## Flujo de pantallas
+## Requisitos
 
-1. Splash
-2. Acceso rapido
-3. Inicio
-4. Parcelas
-5. Detalle de parcela
-6. Nueva/editar parcela
-7. Nueva/editar actividad
-8. Nueva/editar tarea
-9. Nuevo/editar monitoreo
-10. Inventario
-11. Reportes
+- Android Studio con soporte Kotlin/Compose
+- JDK 17
+- Android SDK 34
+- Dispositivo o emulador Android
+- `local.properties` con SDK path y, si aplica, claves Firebase / clima
 
-## Cultivos y ejemplos incluidos
+## Configuracion local
 
-- Yuca variedad `Valencia`
-- Camote variedad `Beauregard`
-- Name variedad `Diamantes`
-- Maiz variedad `ICTA amarillo`
+La app lee parametros sensibles desde `local.properties`.
 
-## Recomendaciones agronomicas generales
+Valores contemplados:
 
-- Yuca: usar estacas sanas, buen drenaje y control temprano de malezas.
-- Camote: mantener humedad uniforme y evitar encharcamiento.
-- Name: vigilar hojas amarillas, drenaje y sanidad del material de siembra.
-- Maiz: dividir fertilizacion por etapa y revisar malezas al inicio.
+- `sdk.dir`
+- `firebase.apiKey`
+- `firebase.appId`
+- `firebase.projectId`
+- `firebase.storageBucket`
+- `firebase.gcmSenderId`
+- `firebase.webClientId`
+- `openWeatherApiKey`
+- `visualCrossingApiKey`
 
-Estas recomendaciones son generales y no sustituyen acompanamiento tecnico local.
+## Comandos de build
 
-## Archivos clave
+### Debug
 
-- `app/src/main/java/com/torresagro/app/MainActivity.kt`
-- `app/src/main/java/com/torresagro/app/ui/TorresAgroApp.kt`
-- `app/src/main/java/com/torresagro/app/ui/screen/FormsScreens.kt`
-- `app/src/main/java/com/torresagro/app/ui/screen/Screens.kt`
-- `app/src/main/java/com/torresagro/app/ui/viewmodel/AppViewModel.kt`
-- `app/src/main/java/com/torresagro/app/data/local/entity/Entities.kt`
-- `app/src/main/java/com/torresagro/app/data/repository/RoomAgroRepository.kt`
-- `app/src/main/java/com/torresagro/app/data/firebase/FirebaseSyncGateway.kt`
-- `app/src/main/java/com/torresagro/app/data/weather/WeatherService.kt`
-- `app/src/main/java/com/torresagro/app/data/local/util/TaskReminderScheduler.kt`
-- `docs/arquitectura-mvp.md`
-- `docs/firebase-setup.md`
-- `docs/production-readiness.md`
-
-## Build local
-
-- `gradlew.bat assembleDebug`
+```powershell
+.\gradlew.bat assembleDebug
+```
 
 Salida esperada:
 
 - `app/build/outputs/apk/debug/app-debug.apk`
 
-## Pendiente para produccion completa
+### Release APK
 
-Lo que falta ya no es tanto estructura de app local, sino cierre de producto y operacion:
+```powershell
+.\gradlew.bat assembleRelease
+```
 
-- Autenticacion opcional de usuario
-- Mapa por parcela
-- Exportacion y respaldo en nube
-- Politica de privacidad y manejo formal de permisos
-- Pruebas de campo y QA en varios dispositivos
-- Firma release
-- Configuracion final para Play Store
+Salida esperada:
+
+- `app/build/outputs/apk/release/`
+
+### Release Bundle
+
+```powershell
+.\gradlew.bat bundleRelease
+```
+
+Salida esperada:
+
+- `app/build/outputs/bundle/release/`
+
+## Releases
+
+### Estado de release actual
+
+El proyecto ya puede generar artifacts `release`, pero todavia no tiene firma de produccion configurada en Gradle ni un keystore de release dentro del flujo del repo.
+
+Eso significa:
+
+- si se genera un artifact `release`, no debe tratarse como publicable a Play Store hasta firmarlo correctamente
+- no existe hoy una configuracion de `signingConfig release` lista para produccion
+- la publicacion final a Play Store sigue bloqueada por firma, assets finales y checklist legal
+
+### Checklist real para produccion
+
+- configurar keystore de release
+- cablear `signingConfig` en `app/build.gradle.kts`
+- validar `applicationId`, nombre final y branding
+- generar AAB firmado
+- correr QA de campo en varios dispositivos
+- publicar politica de privacidad
+- preparar ficha de Play Console
+- subir capturas, icono final y textos de tienda
+
+## Documentacion adicional
+
+- `docs/arquitectura-mvp.md`
+- `docs/firebase-setup.md`
+- `docs/production-readiness.md`
+
+## Estado actual del producto
+
+Torres Agro ya funciona como base operativa local para captura de informacion en campo y seguimiento de parcelas, con una capa visual mucho mas madura y flujos de formulario mas consistentes.
+
+El siguiente salto natural ya no es de estructura interna, sino de operacion real:
+
+- firma release
+- QA de campo
+- endurecimiento legal y de privacidad
+- publicacion de version firmada
