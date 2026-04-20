@@ -17,31 +17,31 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AgroDao {
-    @Query("SELECT * FROM agri_data_cache")
-    fun observeAgriData(): Flow<List<AgriDataEntity>>
-    @Query("SELECT * FROM parcels")
-    fun observeParcels(): Flow<List<ParcelEntity>>
+    @Query("SELECT * FROM agri_data_cache WHERE userId = :userId")
+    fun observeAgriData(userId: String): Flow<List<AgriDataEntity>>
+    @Query("SELECT * FROM parcels WHERE userId = :userId")
+    fun observeParcels(userId: String): Flow<List<ParcelEntity>>
 
-    @Query("SELECT * FROM crop_tasks")
-    fun observeTasks(): Flow<List<CropTaskEntity>>
+    @Query("SELECT * FROM crop_tasks WHERE userId = :userId")
+    fun observeTasks(userId: String): Flow<List<CropTaskEntity>>
 
-    @Query("SELECT * FROM activity_records")
-    fun observeActivities(): Flow<List<ActivityRecordEntity>>
+    @Query("SELECT * FROM activity_records WHERE userId = :userId")
+    fun observeActivities(userId: String): Flow<List<ActivityRecordEntity>>
 
-    @Query("SELECT * FROM crop_observations")
-    fun observeObservations(): Flow<List<CropObservationEntity>>
+    @Query("SELECT * FROM crop_observations WHERE userId = :userId")
+    fun observeObservations(userId: String): Flow<List<CropObservationEntity>>
 
-    @Query("SELECT * FROM inventory_items")
-    fun observeInventory(): Flow<List<InventoryItemEntity>>
+    @Query("SELECT * FROM inventory_items WHERE userId = :userId")
+    fun observeInventory(userId: String): Flow<List<InventoryItemEntity>>
 
-    @Query("SELECT * FROM inventory_items")
-    suspend fun getInventoryItems(): List<InventoryItemEntity>
+    @Query("SELECT * FROM inventory_items WHERE userId = :userId")
+    suspend fun getInventoryItems(userId: String): List<InventoryItemEntity>
 
-    @Query("SELECT * FROM harvest_records")
-    fun observeHarvests(): Flow<List<HarvestRecordEntity>>
+    @Query("SELECT * FROM harvest_records WHERE userId = :userId")
+    fun observeHarvests(userId: String): Flow<List<HarvestRecordEntity>>
 
-    @Query("SELECT * FROM weather_cache")
-    fun observeWeatherCache(): Flow<List<WeatherCacheEntity>>
+    @Query("SELECT * FROM weather_cache WHERE userId = :userId")
+    fun observeWeatherCache(userId: String): Flow<List<WeatherCacheEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTasks(items: List<CropTaskEntity>)
@@ -70,69 +70,69 @@ interface AgroDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAgriData(items: List<AgriDataEntity>)
 
-    @Query("UPDATE crop_tasks SET completed = 1 WHERE id = :taskId")
-    suspend fun markTaskCompleted(taskId: String)
+    @Query("UPDATE crop_tasks SET completed = 1 WHERE id = :taskId AND userId = :userId")
+    suspend fun markTaskCompleted(taskId: String, userId: String)
 
-    @Query("SELECT COUNT(*) FROM parcels")
-    suspend fun parcelCount(): Int
+    @Query("SELECT COUNT(*) FROM parcels WHERE userId = :userId")
+    suspend fun parcelCount(userId: String): Int
 
-    @Query("SELECT * FROM sync_queue ORDER BY createdAt ASC")
-    suspend fun getSyncQueueItems(): List<SyncQueueEntity>
+    @Query("SELECT * FROM sync_queue WHERE userId = :userId ORDER BY createdAt ASC")
+    suspend fun getSyncQueueItems(userId: String): List<SyncQueueEntity>
 
-    @Query("DELETE FROM sync_queue WHERE id = :queueId")
-    suspend fun deleteSyncQueueItem(queueId: String)
+    @Query("DELETE FROM sync_queue WHERE id = :queueId AND userId = :userId")
+    suspend fun deleteSyncQueueItem(queueId: String, userId: String)
 
-    @Query("SELECT * FROM parcels WHERE id = :parcelId LIMIT 1")
-    suspend fun findParcelById(parcelId: String): ParcelEntity?
+    @Query("SELECT * FROM parcels WHERE id = :parcelId AND userId = :userId LIMIT 1")
+    suspend fun findParcelById(parcelId: String, userId: String): ParcelEntity?
 
-    @Query("SELECT * FROM crop_tasks WHERE id = :taskId LIMIT 1")
-    suspend fun findTaskById(taskId: String): CropTaskEntity?
+    @Query("SELECT * FROM crop_tasks WHERE id = :taskId AND userId = :userId LIMIT 1")
+    suspend fun findTaskById(taskId: String, userId: String): CropTaskEntity?
 
-    @Query("SELECT * FROM activity_records WHERE id = :activityId LIMIT 1")
-    suspend fun findActivityById(activityId: String): ActivityRecordEntity?
+    @Query("SELECT * FROM activity_records WHERE id = :activityId AND userId = :userId LIMIT 1")
+    suspend fun findActivityById(activityId: String, userId: String): ActivityRecordEntity?
 
-    @Query("SELECT * FROM crop_observations WHERE id = :observationId LIMIT 1")
-    suspend fun findObservationById(observationId: String): CropObservationEntity?
+    @Query("SELECT * FROM crop_observations WHERE id = :observationId AND userId = :userId LIMIT 1")
+    suspend fun findObservationById(observationId: String, userId: String): CropObservationEntity?
 
-    @Query("DELETE FROM parcels WHERE id = :parcelId")
-    suspend fun deleteParcel(parcelId: String)
+    @Query("DELETE FROM parcels WHERE id = :parcelId AND userId = :userId")
+    suspend fun deleteParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM weather_cache WHERE parcelId = :parcelId")
-    suspend fun deleteWeatherCacheByParcel(parcelId: String)
+    @Query("DELETE FROM weather_cache WHERE parcelId = :parcelId AND userId = :userId")
+    suspend fun deleteWeatherCacheByParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM agri_data_cache WHERE parcelId = :parcelId")
-    suspend fun deleteAgriDataByParcel(parcelId: String)
+    @Query("DELETE FROM agri_data_cache WHERE parcelId = :parcelId AND userId = :userId")
+    suspend fun deleteAgriDataByParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM activity_records WHERE id = :activityId")
-    suspend fun deleteActivity(activityId: String)
+    @Query("DELETE FROM activity_records WHERE id = :activityId AND userId = :userId")
+    suspend fun deleteActivity(activityId: String, userId: String)
 
-    @Query("DELETE FROM crop_observations WHERE id = :observationId")
-    suspend fun deleteObservation(observationId: String)
+    @Query("DELETE FROM crop_observations WHERE id = :observationId AND userId = :userId")
+    suspend fun deleteObservation(observationId: String, userId: String)
 
-    @Query("DELETE FROM crop_tasks WHERE parcelId = :parcelId")
-    suspend fun deleteTasksByParcel(parcelId: String)
+    @Query("DELETE FROM crop_tasks WHERE parcelId = :parcelId AND userId = :userId")
+    suspend fun deleteTasksByParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM crop_tasks WHERE id = :taskId")
-    suspend fun deleteTask(taskId: String)
+    @Query("DELETE FROM crop_tasks WHERE id = :taskId AND userId = :userId")
+    suspend fun deleteTask(taskId: String, userId: String)
 
-    @Query("DELETE FROM crop_observations WHERE parcelId = :parcelId")
-    suspend fun deleteObservationsByParcel(parcelId: String)
+    @Query("DELETE FROM crop_observations WHERE parcelId = :parcelId AND userId = :userId")
+    suspend fun deleteObservationsByParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM activity_records WHERE parcelId = :parcelId")
-    suspend fun deleteActivitiesByParcel(parcelId: String)
+    @Query("DELETE FROM activity_records WHERE parcelId = :parcelId AND userId = :userId")
+    suspend fun deleteActivitiesByParcel(parcelId: String, userId: String)
 
-    @Query("DELETE FROM parcels")
-    suspend fun clearParcels()
+    @Query("DELETE FROM parcels WHERE userId = :userId")
+    suspend fun clearParcels(userId: String)
 
-    @Query("DELETE FROM crop_tasks")
-    suspend fun clearTasks()
+    @Query("DELETE FROM crop_tasks WHERE userId = :userId")
+    suspend fun clearTasks(userId: String)
 
-    @Query("DELETE FROM activity_records")
-    suspend fun clearActivities()
+    @Query("DELETE FROM activity_records WHERE userId = :userId")
+    suspend fun clearActivities(userId: String)
 
-    @Query("DELETE FROM crop_observations")
-    suspend fun clearObservations()
+    @Query("DELETE FROM crop_observations WHERE userId = :userId")
+    suspend fun clearObservations(userId: String)
 
-    @Query("DELETE FROM inventory_items WHERE id = :id")
-    suspend fun deleteInventoryItem(id: String)
+    @Query("DELETE FROM inventory_items WHERE id = :id AND userId = :userId")
+    suspend fun deleteInventoryItem(id: String, userId: String)
 }

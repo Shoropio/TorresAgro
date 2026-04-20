@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "parcels")
 data class ParcelEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val name: String,
     val locationName: String,
     val sizeHectares: Double,
@@ -22,6 +23,7 @@ data class ParcelEntity(
 @Entity(tableName = "crop_tasks")
 data class CropTaskEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val parcelId: String,
     val title: String,
     val dueDate: String,
@@ -34,6 +36,7 @@ data class CropTaskEntity(
 @Entity(tableName = "activity_records")
 data class ActivityRecordEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val parcelId: String,
     val activityType: String,
     val date: String,
@@ -46,6 +49,7 @@ data class ActivityRecordEntity(
 @Entity(tableName = "crop_observations")
 data class CropObservationEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val parcelId: String,
     val date: String,
     val cropStage: String,
@@ -58,6 +62,7 @@ data class CropObservationEntity(
 @Entity(tableName = "inventory_items")
 data class InventoryItemEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val name: String,
     val category: String,
     val stock: Double,
@@ -69,6 +74,7 @@ data class InventoryItemEntity(
 @Entity(tableName = "harvest_records")
 data class HarvestRecordEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val parcelId: String,
     val cropType: String,
     val harvestedKg: Double,
@@ -79,6 +85,7 @@ data class HarvestRecordEntity(
 @Entity(tableName = "sync_queue")
 data class SyncQueueEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val entityType: String,
     val entityId: String,
     val operation: String,
@@ -88,6 +95,7 @@ data class SyncQueueEntity(
 @Entity(tableName = "weather_cache")
 data class WeatherCacheEntity(
     @PrimaryKey val id: String,
+    val userId: String,
     val parcelId: String? = null,
     val locationLabel: String,
     val status: String,
@@ -95,7 +103,7 @@ data class WeatherCacheEntity(
     val temperatureC: Int,
     val humidityPercent: Int,
     val windSpeedKph: Double = 0.0,
-    val forecastJson: String? = null, // JSON string for 16-day forecast
+    val forecastJson: String? = null,
     val online: Boolean,
     val updatedAtEpochMillis: Long
 )
@@ -103,6 +111,7 @@ data class WeatherCacheEntity(
 @Entity(tableName = "agri_data_cache")
 data class AgriDataEntity(
     @PrimaryKey val parcelId: String,
+    val userId: String,
     val ndvi: Double,
     val soilMoisture: Double,
     val pestJson: String? = null,

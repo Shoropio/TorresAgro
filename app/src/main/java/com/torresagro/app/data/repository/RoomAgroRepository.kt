@@ -18,96 +18,107 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import java.util.UUID
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
+import com.torresagro.app.data.firebase.FirebaseAuthManager
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class RoomAgroRepository(
     private val dao: AgroDao,
     private val syncGateway: SyncGateway? = null,
     private val reminderScheduler: TaskReminderScheduler? = null,
+    private val authManager: FirebaseAuthManager = FirebaseAuthManager(),
     scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) : AgroRepository {
     private val weatherService = WeatherService()
     private val agriService = AgriService()
     private val jsonConv = Json { ignoreUnknownKeys = true }
 
+    private fun getCurrentUid(): String = authManager.currentUid() ?: "anonymous"
+
     companion object {
         private const val CURRENT_LOCATION_WEATHER_ID = "current_location"
     }
 
-    suspend fun pushPendingChangesForStartup() {
+    override suspend fun pushPendingChanges() {
         syncGateway?.pushPendingChanges()
     }
 
-    suspend fun pullLatestDataForStartup() {
+    override suspend fun pullLatestData() {
         syncGateway?.pullLatestData()
     }
 
     override val uiState: StateFlow<AppUiState> =
-        combine(
+        flowOf(getCurrentUid()).flatMapLatest { uid ->
             combine(
-                dao.observeParcels(),
-                dao.observeTasks(),
-                dao.observeActivities()
-            ) { parcels, tasks, activities ->
-                Triple(parcels, tasks, activities)
-            },
-            combine(
-                dao.observeObservations(),
-                dao.observeInventory(),
-                dao.observeHarvests(),
-                dao.observeWeatherCache(),
-                dao.observeAgriData()
-            ) { observations, inventory, harvests, weatherCache, agriData ->
-                DataPack(observations, inventory, harvests, weatherCache, agriData)
-            }
-        ) { left, right ->
-            val (parcels, tasks, activities) = left
-            val (observations, inventory, harvests, weatherCache, agriData) = right
-            
-            val currentLocationWeather = weatherCache
-                .firstOrNull { it.id == CURRENT_LOCATION_WEATHER_ID }
-                ?.toDomain()
-            
-            val parcelWeatherById = weatherCache
-                .filter { it.parcelId != null }
-                .associate { cache -> cache.parcelId.orEmpty() to cache.toDomain() }
-            
-            val parcelAgriData = agriData.associate { it.parcelId to it.toDomain() }
-            
-            // Calcular alertas y recomendaciones en tiempo real
-            val allAlerts = mutableListOf<com.torresagro.app.domain.model.AgroAlert>()
-            val allRecs = mutableListOf<com.torresagro.app.domain.model.Recommendation>()
-            
-            parcels.forEach { p ->
-                val w = parcelWeatherById[p.id]
-                val a = parcelAgriData[p.id]
-                if (w != null) {
-                    allAlerts.addAll(AgroEngine.calculateAlerts(w, a))
-                    allRecs.addAll(AgroEngine.getRecommendations(w, a))
+                combine(
+                    dao.observeParcels(uid),
+                    dao.observeTasks(uid),
+                    dao.observeActivities(uid)
+                ) { parcels, tasks, activities ->
+                    Triple(parcels, tasks, activities)
+                },
+                combine(
+                    dao.observeObservations(uid),
+                    dao.observeInventory(uid),
+                    dao.observeHarvests(uid),
+                    dao.observeWeatherCache(uid),
+                    dao.observeAgriData(uid)
+                ) { observations, inventory, harvests, weatherCache, agriData ->
+                    DataPack(observations, inventory, harvests, weatherCache, agriData)
                 }
-            }
+            ) { left, right ->
+                val (parcels, tasks, activities) = left
+                val (observations, inventory, harvests, weatherCache, agriData) = right
+                
+                val currentLocationWeather = weatherCache
+                    .firstOrNull { it.id == CURRENT_LOCATION_WEATHER_ID }
+                    ?.toDomain()
+                
+                val parcelWeatherById = weatherCache
+                    .filter { it.parcelId != null }
+                    .associate { cache -> cache.parcelId.orEmpty() to cache.toDomain() }
+                
+                val parcelAgriData = agriData.associate { it.parcelId to it.toDomain() }
+                
+                // Calcular alertas y recomendaciones en tiempo real
+                val allAlerts = mutableListOf<com.torresagro.app.domain.model.AgroAlert>()
+                val allRecs = mutableListOf<com.torresagro.app.domain.model.Recommendation>()
+                
+                parcels.forEach { p ->
+                    val w = parcelWeatherById[p.id]
+                    val a = parcelAgriData[p.id]
+                    if (w != null) {
+                        allAlerts.addAll(AgroEngine.calculateAlerts(w, a))
+                        allRecs.addAll(AgroEngine.getRecommendations(w, a))
+                    }
+                }
 
-            AppUiState(
-                parcels = parcels.map { it.toDomain() },
-                tasks = tasks.map { it.toDomain() },
-                activities = activities.map { it.toDomain() },
-                observations = observations.map { it.toDomain() },
-                inventory = inventory.map { it.toDomain() },
-                harvests = harvests.map { it.toDomain() },
-                tips = buildTips(),
-                currentLocationWeather = currentLocationWeather ?: WeatherSnapshot(
-                    locationLabel = parcels.firstOrNull()?.locationName ?: "Sincronizando...",
-                    status = "Obteniendo datos reales...",
-                    rainfallMm = 0,
-                    temperatureC = 0,
-                    humidityPercent = 0,
-                    online = false,
-                    updatedAtEpochMillis = System.currentTimeMillis()
-                ),
-                parcelWeatherById = parcelWeatherById,
-                parcelAgriData = parcelAgriData,
-                alerts = allAlerts.distinctBy { it.message },
-                recommendations = allRecs.distinctBy { it.title }
-            )
+                AppUiState(
+                    parcels = parcels.map { it.toDomain() },
+                    tasks = tasks.map { it.toDomain() },
+                    activities = activities.map { it.toDomain() },
+                    observations = observations.map { it.toDomain() },
+                    inventory = inventory.map { it.toDomain() },
+                    harvests = harvests.map { it.toDomain() },
+                    tips = buildTips(),
+                    currentLocationWeather = currentLocationWeather ?: WeatherSnapshot(
+                        locationLabel = parcels.firstOrNull()?.locationName ?: "Sincronizando...",
+                        status = "Obteniendo datos reales...",
+                        rainfallMm = 0,
+                        temperatureC = 0,
+                        humidityPercent = 0,
+                        online = false,
+                        updatedAtEpochMillis = System.currentTimeMillis()
+                    ),
+                    parcelWeatherById = parcelWeatherById,
+                    parcelAgriData = parcelAgriData,
+                    alerts = allAlerts.distinctBy { it.message },
+                    recommendations = allRecs.distinctBy { it.title }
+                )
+            }
         }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
     private data class DataPack(
@@ -119,7 +130,8 @@ class RoomAgroRepository(
     )
 
     override suspend fun completeTask(taskId: String) {
-        dao.markTaskCompleted(taskId)
+        val uid = getCurrentUid()
+        dao.markTaskCompleted(taskId, uid)
         reminderScheduler?.cancel(taskId)
         syncGateway?.pushPendingChanges()
     }
@@ -133,10 +145,12 @@ class RoomAgroRepository(
         reminderEnabled: Boolean
     ) {
         val id = UUID.randomUUID().toString()
+        val uid = getCurrentUid()
         dao.upsertTasks(
             listOf(
                 CropTaskEntity(
                     id = id,
+                    userId = uid,
                     parcelId = parcelId,
                     title = title,
                     dueDate = dueDate,
@@ -162,7 +176,7 @@ class RoomAgroRepository(
                 parcelName = uiState.value.parcels.firstOrNull { it.id == parcelId }?.name.orEmpty()
             )
         }
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "task", id, "UPSERT", "${dueDate}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "task", id, "UPSERT", "${dueDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
@@ -178,11 +192,13 @@ class RoomAgroRepository(
         boundary: List<Pair<Double, Double>>
     ) {
         val id = UUID.randomUUID().toString()
+        val uid = getCurrentUid()
         val expectedHarvestDate = LocalDate.parse(sowingDate).plusDays(cropType.cycleDays.toLong()).toString()
         dao.upsertParcels(
             listOf(
                 ParcelEntity(
                     id = id,
+                    userId = uid,
                     name = name,
                     locationName = locationName,
                     sizeHectares = sizeHectares,
@@ -197,9 +213,8 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", id, "UPSERT", "${sowingDate}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "parcel", id, "UPSERT", "${sowingDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
-        refreshWeather(id)
     }
 
     override suspend fun addActivity(
@@ -212,10 +227,12 @@ class RoomAgroRepository(
         photoUri: String?
     ) {
         val id = UUID.randomUUID().toString()
+        val uid = getCurrentUid()
         dao.upsertActivities(
             listOf(
                 ActivityRecordEntity(
                     id = id,
+                    userId = uid,
                     parcelId = parcelId,
                     activityType = activityType.name,
                     date = date,
@@ -231,7 +248,7 @@ class RoomAgroRepository(
         try {
             val qtyValue = quantity.split(" ").firstOrNull()?.toDoubleOrNull() ?: 0.0
             if (qtyValue > 0) {
-                val inventory = dao.getInventoryItems()
+                val inventory = dao.getInventoryItems(uid)
                 val matchingItem: com.torresagro.app.data.local.entity.InventoryItemEntity? = inventory.find { it ->
                     when (activityType) {
                         ActivityType.Fertilization -> it.name.contains("Fertilizante", ignoreCase = true) || it.category.contains("Fertilizante", ignoreCase = true)
@@ -251,7 +268,7 @@ class RoomAgroRepository(
             // Safe fallback if parsing fails
         }
         
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "activity", id, "UPSERT", "${date}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "activity", id, "UPSERT", "${date}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
@@ -267,11 +284,13 @@ class RoomAgroRepository(
         longitude: Double?,
         boundary: List<Pair<Double, Double>>
     ) {
+        val uid = getCurrentUid()
         val expectedHarvestDate = LocalDate.parse(sowingDate).plusDays(cropType.cycleDays.toLong()).toString()
         dao.upsertParcels(
             listOf(
                 ParcelEntity(
                     id = parcelId,
+                    userId = uid,
                     name = name,
                     locationName = locationName,
                     sizeHectares = sizeHectares,
@@ -286,22 +305,23 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", parcelId, "UPSERT", "${sowingDate}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "parcel", parcelId, "UPSERT", "${sowingDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
         refreshWeather(parcelId)
     }
 
     override suspend fun deleteParcel(parcelId: String) {
+        val uid = getCurrentUid()
         uiState.value.tasks.filter { it.parcelId == parcelId }.forEach { task ->
             reminderScheduler?.cancel(task.id)
         }
-        dao.deleteActivitiesByParcel(parcelId)
-        dao.deleteObservationsByParcel(parcelId)
-        dao.deleteTasksByParcel(parcelId)
-        dao.deleteWeatherCacheByParcel(parcelId)
-        dao.deleteAgriDataByParcel(parcelId)
-        dao.deleteParcel(parcelId)
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", parcelId, "DELETE", "2026-04-17T08:00:00")))
+        dao.deleteActivitiesByParcel(parcelId, uid)
+        dao.deleteObservationsByParcel(parcelId, uid)
+        dao.deleteTasksByParcel(parcelId, uid)
+        dao.deleteWeatherCacheByParcel(parcelId, uid)
+        dao.deleteAgriDataByParcel(parcelId, uid)
+        dao.deleteParcel(parcelId, uid)
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "parcel", parcelId, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
@@ -315,10 +335,12 @@ class RoomAgroRepository(
         notes: String,
         photoUri: String?
     ) {
+        val uid = getCurrentUid()
         dao.upsertActivities(
             listOf(
                 ActivityRecordEntity(
                     id = activityId,
+                    userId = uid,
                     parcelId = parcelId,
                     activityType = activityType.name,
                     date = date,
@@ -329,13 +351,14 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "activity", activityId, "UPSERT", "${date}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "activity", activityId, "UPSERT", "${date}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun deleteActivity(activityId: String) {
-        dao.deleteActivity(activityId)
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "activity", activityId, "DELETE", "2026-04-17T08:00:00")))
+        val uid = getCurrentUid()
+        dao.deleteActivity(activityId, uid)
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "activity", activityId, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
@@ -349,10 +372,12 @@ class RoomAgroRepository(
         reminderEnabled: Boolean,
         completed: Boolean
     ) {
+        val uid = getCurrentUid()
         dao.upsertTasks(
             listOf(
                 CropTaskEntity(
                     id = taskId,
+                    userId = uid,
                     parcelId = parcelId,
                     title = title,
                     dueDate = dueDate,
@@ -380,19 +405,21 @@ class RoomAgroRepository(
         } else {
             reminderScheduler?.cancel(taskId)
         }
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "task", taskId, "UPSERT", "${dueDate}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "task", taskId, "UPSERT", "${dueDate}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun deleteTask(taskId: String) {
-        dao.deleteTask(taskId)
+        val uid = getCurrentUid()
+        dao.deleteTask(taskId, uid)
         reminderScheduler?.cancel(taskId)
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "task", taskId, "DELETE", "2026-04-17T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "task", taskId, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun refreshWeather(parcelId: String) {
-        val parcel = dao.findParcelById(parcelId)?.toDomain()
+        val uid = getCurrentUid()
+        val parcel = dao.findParcelById(parcelId, uid)?.toDomain()
             ?: uiState.value.parcels.firstOrNull { it.id == parcelId }
             ?: return
         
@@ -420,10 +447,11 @@ class RoomAgroRepository(
             online = false,
             updatedAtEpochMillis = System.currentTimeMillis()
         )
-        dao.upsertWeatherCache(listOf(finalWeather.toCacheEntity(id = "parcel_$parcelId", parcelId = parcelId)))
+        dao.upsertWeatherCache(listOf(finalWeather.toCacheEntity(id = "parcel_$parcelId", userId = uid, parcelId = parcelId)))
     }
 
     override suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
+        val uid = getCurrentUid()
         val updatedWeather = runCatching {
             weatherService.fetchWeather(locationLabel, latitude, longitude)
         }.getOrElse {
@@ -438,7 +466,7 @@ class RoomAgroRepository(
                 updatedAtEpochMillis = System.currentTimeMillis()
             )
         }
-        dao.upsertWeatherCache(listOf(updatedWeather.toCacheEntity(id = CURRENT_LOCATION_WEATHER_ID)))
+        dao.upsertWeatherCache(listOf(updatedWeather.toCacheEntity(id = CURRENT_LOCATION_WEATHER_ID, userId = uid)))
     }
 
     override suspend fun addObservation(
@@ -451,10 +479,12 @@ class RoomAgroRepository(
         photoUri: String?
     ) {
         val id = UUID.randomUUID().toString()
+        val uid = getCurrentUid()
         dao.upsertObservations(
             listOf(
                 CropObservationEntity(
                     id = id,
+                    userId = uid,
                     parcelId = parcelId,
                     date = date,
                     cropStage = cropStage,
@@ -465,7 +495,7 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "observation", id, "UPSERT", "${date}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "observation", id, "UPSERT", "${date}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
@@ -479,10 +509,12 @@ class RoomAgroRepository(
         recommendation: String,
         photoUri: String?
     ) {
+        val uid = getCurrentUid()
         dao.upsertObservations(
             listOf(
                 CropObservationEntity(
                     id = observationId,
+                    userId = uid,
                     parcelId = parcelId,
                     date = date,
                     cropStage = cropStage,
@@ -493,22 +525,25 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "observation", observationId, "UPSERT", "${date}T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "observation", observationId, "UPSERT", "${date}T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun deleteObservation(observationId: String) {
-        dao.deleteObservation(observationId)
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "observation", observationId, "DELETE", "2026-04-17T08:00:00")))
+        val uid = getCurrentUid()
+        dao.deleteObservation(observationId, uid)
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "observation", observationId, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
         val id = UUID.randomUUID().toString()
+        val uid = getCurrentUid()
         dao.upsertInventory(
             listOf(
                 com.torresagro.app.data.local.entity.InventoryItemEntity(
                     id = id,
+                    userId = uid,
                     name = name,
                     category = category,
                     stock = stock,
@@ -518,15 +553,17 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double) {
+        val uid = getCurrentUid()
         dao.upsertInventory(
             listOf(
                 com.torresagro.app.data.local.entity.InventoryItemEntity(
                     id = id,
+                    userId = uid,
                     name = name,
                     category = category,
                     stock = stock,
@@ -536,18 +573,20 @@ class RoomAgroRepository(
                 )
             )
         )
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "inventory", id, "UPSERT", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun deleteInventoryItem(id: String) {
-        dao.deleteInventoryItem(id)
-        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "inventory", id, "DELETE", "2026-04-17T08:00:00")))
+        val uid = getCurrentUid()
+        dao.deleteInventoryItem(id, uid)
+        dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), uid, "inventory", id, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
     }
 
     override suspend fun refreshSatelliteData(parcelId: String) {
-        val parcel = dao.findParcelById(parcelId)?.toDomain()
+        val uid = getCurrentUid()
+        val parcel = dao.findParcelById(parcelId, uid)?.toDomain()
             ?: uiState.value.parcels.firstOrNull { it.id == parcelId } ?: return
         if (parcel.latitude == null || parcel.longitude == null) return
         
@@ -561,7 +600,7 @@ class RoomAgroRepository(
                 historicalGrids = grids
             )
         }.onSuccess {
-            dao.upsertAgriData(listOf(it.toCacheEntity()))
+            dao.upsertAgriData(listOf(it.toCacheEntity(userId = uid)))
         }
     }
 
@@ -591,8 +630,9 @@ class RoomAgroRepository(
         }
     }
 
-    private fun WeatherSnapshot.toCacheEntity(id: String, parcelId: String? = null) = WeatherCacheEntity(
+    private fun WeatherSnapshot.toCacheEntity(id: String, userId: String, parcelId: String? = null) = WeatherCacheEntity(
         id = id,
+        userId = userId,
         parcelId = parcelId,
         locationLabel = locationLabel,
         status = status,
@@ -605,8 +645,9 @@ class RoomAgroRepository(
         updatedAtEpochMillis = updatedAtEpochMillis
     )
 
-    private fun com.torresagro.app.domain.model.AgriData.toCacheEntity() = AgriDataEntity(
+    private fun com.torresagro.app.domain.model.AgriData.toCacheEntity(userId: String) = AgriDataEntity(
         parcelId = parcelId,
+        userId = userId,
         ndvi = ndvi,
         soilMoisture = soilMoisture,
         pestJson = jsonConv.encodeToString(pestPredictions),

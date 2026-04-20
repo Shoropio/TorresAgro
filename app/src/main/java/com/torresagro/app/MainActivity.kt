@@ -11,7 +11,6 @@ import androidx.room.Room
 import com.torresagro.app.data.firebase.FirebaseBootstrap
 import com.torresagro.app.data.firebase.FirebaseSyncGateway
 import com.torresagro.app.data.local.AgroDatabase
-import com.torresagro.app.data.local.SeedData
 import com.torresagro.app.data.local.util.TaskReminderScheduler
 import com.torresagro.app.data.repository.RoomAgroRepository
 import com.torresagro.app.ui.TorresAgroApp
@@ -25,11 +24,7 @@ class MainActivity : ComponentActivity() {
     ) { }
 
     private val database by lazy {
-        Room.databaseBuilder(
-            applicationContext,
-            AgroDatabase::class.java,
-            "torres-agro.db"
-        ).fallbackToDestructiveMigration().build()
+        AgroDatabase.getDatabase(applicationContext)
     }
 
     private val repository by lazy {
@@ -38,6 +33,7 @@ class MainActivity : ComponentActivity() {
             dao = database.agroDao(),
             syncGateway = syncGateway,
             reminderScheduler = TaskReminderScheduler(applicationContext),
+            authManager = com.torresagro.app.data.firebase.FirebaseAuthManager(),
             scope = lifecycleScope
         )
     }
@@ -52,17 +48,9 @@ class MainActivity : ComponentActivity() {
         FirebaseBootstrap.initializeIfPossible(applicationContext)
         
         lifecycleScope.launch {
-            try {
-                SeedData.populateIfEmpty(database)
-            } catch (e: Exception) {
-                android.util.Log.e("TorresAgro", "Error en SeedData: ${e.message}")
-            }
-        }
-        
-        lifecycleScope.launch {
             runCatching {
-                repository.pushPendingChangesForStartup()
-                repository.pullLatestDataForStartup()
+                repository.pushPendingChanges()
+                repository.pullLatestData()
             }.onFailure {
                 android.util.Log.e("TorresAgro", "Error inicial de Firebase: ${it.message}")
             }

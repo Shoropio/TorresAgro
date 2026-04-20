@@ -506,4 +506,6 @@ class InMemoryAgroRepository : AgroRepository {
     override suspend fun refreshPestPredictions(parcelId: String) {}
     override suspend fun refreshHistoricalGrids(parcelId: String) {}
     override suspend fun calculateAgroInsights(parcelId: String) {}
+    override suspend fun pushPendingChanges() {}
+    override suspend fun pullLatestData() {}
 }

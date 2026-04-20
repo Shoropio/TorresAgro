@@ -200,6 +200,13 @@ class AppViewModel(
             repository.deleteInventoryItem(id)
         }
     }
+
+    fun sync() {
+        viewModelScope.launch {
+            repository.pushPendingChanges()
+            repository.pullLatestData()
+        }
+    }
 }
 
 class AppViewModelFactory(

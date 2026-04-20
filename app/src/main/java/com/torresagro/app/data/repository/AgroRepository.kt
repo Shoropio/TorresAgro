@@ -109,4 +109,6 @@ interface AgroRepository {
     suspend fun refreshPestPredictions(parcelId: String)
     suspend fun refreshHistoricalGrids(parcelId: String)
     suspend fun calculateAgroInsights(parcelId: String)
+    suspend fun pullLatestData()
+    suspend fun pushPendingChanges()
 }
