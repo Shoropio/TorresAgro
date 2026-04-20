@@ -4,25 +4,18 @@ import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.data.local.dao.AgroDao
 import com.torresagro.app.data.local.util.TaskReminderScheduler
 import com.torresagro.app.data.weather.WeatherService
-import com.torresagro.app.domain.model.AgronomicTip
-import com.torresagro.app.domain.model.AppUiState
-import com.torresagro.app.domain.model.ActivityType
-import com.torresagro.app.domain.model.CropCatalog
-import com.torresagro.app.domain.model.CropType
-import com.torresagro.app.domain.model.TaskType
-import com.torresagro.app.domain.model.WeatherSnapshot
-import com.torresagro.app.data.local.entity.ActivityRecordEntity
-import com.torresagro.app.data.local.entity.CropObservationEntity
-import com.torresagro.app.data.local.entity.CropTaskEntity
-import com.torresagro.app.data.local.entity.ParcelEntity
-import com.torresagro.app.data.local.entity.SyncQueueEntity
+import com.torresagro.app.domain.model.*
+import com.torresagro.app.data.local.entity.*
+import com.torresagro.app.data.agri.AgriService
+import com.torresagro.app.domain.logic.AgroEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import java.util.UUID
 
@@ -33,7 +26,12 @@ class RoomAgroRepository(
     scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) : AgroRepository {
     private val weatherService = WeatherService()
-    private val weatherState = MutableStateFlow<WeatherSnapshot?>(null)
+    private val agriService = AgriService()
+    private val jsonConv = Json { ignoreUnknownKeys = true }
+
+    companion object {
+        private const val CURRENT_LOCATION_WEATHER_ID = "current_location"
+    }
 
     suspend fun pushPendingChangesForStartup() {
         syncGateway?.pushPendingChanges()
@@ -55,14 +53,39 @@ class RoomAgroRepository(
             combine(
                 dao.observeObservations(),
                 dao.observeInventory(),
-                dao.observeHarvests()
-            ) { observations, inventory, harvests ->
-                Triple(observations, inventory, harvests)
-            },
-            weatherState
-        ) { left, right, weather ->
+                dao.observeHarvests(),
+                dao.observeWeatherCache(),
+                dao.observeAgriData()
+            ) { observations, inventory, harvests, weatherCache, agriData ->
+                DataPack(observations, inventory, harvests, weatherCache, agriData)
+            }
+        ) { left, right ->
             val (parcels, tasks, activities) = left
-            val (observations, inventory, harvests) = right
+            val (observations, inventory, harvests, weatherCache, agriData) = right
+            
+            val currentLocationWeather = weatherCache
+                .firstOrNull { it.id == CURRENT_LOCATION_WEATHER_ID }
+                ?.toDomain()
+            
+            val parcelWeatherById = weatherCache
+                .filter { it.parcelId != null }
+                .associate { cache -> cache.parcelId.orEmpty() to cache.toDomain() }
+            
+            val parcelAgriData = agriData.associate { it.parcelId to it.toDomain() }
+            
+            // Calcular alertas y recomendaciones en tiempo real
+            val allAlerts = mutableListOf<com.torresagro.app.domain.model.AgroAlert>()
+            val allRecs = mutableListOf<com.torresagro.app.domain.model.Recommendation>()
+            
+            parcels.forEach { p ->
+                val w = parcelWeatherById[p.id]
+                val a = parcelAgriData[p.id]
+                if (w != null) {
+                    allAlerts.addAll(AgroEngine.calculateAlerts(w, a))
+                    allRecs.addAll(AgroEngine.getRecommendations(w, a))
+                }
+            }
+
             AppUiState(
                 parcels = parcels.map { it.toDomain() },
                 tasks = tasks.map { it.toDomain() },
@@ -71,16 +94,29 @@ class RoomAgroRepository(
                 inventory = inventory.map { it.toDomain() },
                 harvests = harvests.map { it.toDomain() },
                 tips = buildTips(),
-                weather = weather ?: WeatherSnapshot(
-                    locationLabel = parcels.firstOrNull()?.locationName ?: "Sin ubicacion",
-                    status = "Dato local guardado",
-                    rainfallMm = 12,
-                    temperatureC = 28,
-                    humidityPercent = 80,
-                    online = false
-                )
+                currentLocationWeather = currentLocationWeather ?: WeatherSnapshot(
+                    locationLabel = parcels.firstOrNull()?.locationName ?: "Sincronizando...",
+                    status = "Obteniendo datos reales...",
+                    rainfallMm = 0,
+                    temperatureC = 0,
+                    humidityPercent = 0,
+                    online = false,
+                    updatedAtEpochMillis = System.currentTimeMillis()
+                ),
+                parcelWeatherById = parcelWeatherById,
+                parcelAgriData = parcelAgriData,
+                alerts = allAlerts.distinctBy { it.message },
+                recommendations = allRecs.distinctBy { it.title }
             )
         }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), AppUiState())
+
+    private data class DataPack(
+        val observations: List<CropObservationEntity>,
+        val inventory: List<com.torresagro.app.data.local.entity.InventoryItemEntity>,
+        val harvests: List<com.torresagro.app.data.local.entity.HarvestRecordEntity>,
+        val weatherCache: List<WeatherCacheEntity>,
+        val agriData: List<AgriDataEntity>
+    )
 
     override suspend fun completeTask(taskId: String) {
         dao.markTaskCompleted(taskId)
@@ -262,6 +298,8 @@ class RoomAgroRepository(
         dao.deleteActivitiesByParcel(parcelId)
         dao.deleteObservationsByParcel(parcelId)
         dao.deleteTasksByParcel(parcelId)
+        dao.deleteWeatherCacheByParcel(parcelId)
+        dao.deleteAgriDataByParcel(parcelId)
         dao.deleteParcel(parcelId)
         dao.enqueueSync(listOf(SyncQueueEntity(UUID.randomUUID().toString(), "parcel", parcelId, "DELETE", "2026-04-17T08:00:00")))
         syncGateway?.pushPendingChanges()
@@ -357,35 +395,50 @@ class RoomAgroRepository(
         val parcel = dao.findParcelById(parcelId)?.toDomain()
             ?: uiState.value.parcels.firstOrNull { it.id == parcelId }
             ?: return
-        weatherState.value = runCatching {
-            weatherService.fetchWeather(parcel.locationName, parcel.latitude, parcel.longitude)
-        }.getOrElse {
-            android.util.Log.w("RoomAgroRepository", "No se pudo actualizar el clima para ${parcel.locationName}", it)
-            WeatherSnapshot(
-                locationLabel = parcel.locationName,
-                status = "Sin internet: ultimo dato guardado",
-                rainfallMm = weatherState.value?.rainfallMm ?: 12,
-                temperatureC = weatherState.value?.temperatureC ?: 28,
-                humidityPercent = weatherState.value?.humidityPercent ?: 80,
-                online = false
-            )
+        
+        var attempts = 0
+        var updatedWeather: WeatherSnapshot? = null
+        
+        while (attempts < 3 && updatedWeather == null) {
+            attempts++
+            runCatching {
+                weatherService.fetchWeather(parcel.locationName, parcel.latitude, parcel.longitude)
+            }.onSuccess {
+                updatedWeather = it
+            }.onFailure {
+                if (attempts < 3) kotlinx.coroutines.delay(1000)
+                android.util.Log.e("RoomAgro", "Intento $attempts de clima fallido: ${it.message}")
+            }
         }
+
+        val finalWeather = updatedWeather ?: uiState.value.parcelWeatherById[parcelId] ?: WeatherSnapshot(
+            locationLabel = parcel.locationName,
+            status = "Sin conexión: no hay datos previos",
+            rainfallMm = 0,
+            temperatureC = 0,
+            humidityPercent = 0,
+            online = false,
+            updatedAtEpochMillis = System.currentTimeMillis()
+        )
+        dao.upsertWeatherCache(listOf(finalWeather.toCacheEntity(id = "parcel_$parcelId", parcelId = parcelId)))
     }
 
     override suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
-        weatherState.value = runCatching {
+        val updatedWeather = runCatching {
             weatherService.fetchWeather(locationLabel, latitude, longitude)
         }.getOrElse {
             android.util.Log.w("RoomAgroRepository", "No se pudo actualizar el clima para coordenadas $latitude,$longitude", it)
             WeatherSnapshot(
                 locationLabel = locationLabel,
-                status = "Sin internet: ultimo dato guardado",
-                rainfallMm = weatherState.value?.rainfallMm ?: 12,
-                temperatureC = weatherState.value?.temperatureC ?: 28,
-                humidityPercent = weatherState.value?.humidityPercent ?: 80,
-                online = false
+                status = "Sin conexión: modo lectura",
+                rainfallMm = uiState.value.currentLocationWeather?.rainfallMm ?: 0,
+                temperatureC = uiState.value.currentLocationWeather?.temperatureC ?: 0,
+                humidityPercent = uiState.value.currentLocationWeather?.humidityPercent ?: 0,
+                online = false,
+                updatedAtEpochMillis = System.currentTimeMillis()
             )
         }
+        dao.upsertWeatherCache(listOf(updatedWeather.toCacheEntity(id = CURRENT_LOCATION_WEATHER_ID)))
     }
 
     override suspend fun addObservation(
@@ -493,6 +546,38 @@ class RoomAgroRepository(
         syncGateway?.pushPendingChanges()
     }
 
+    override suspend fun refreshSatelliteData(parcelId: String) {
+        val parcel = dao.findParcelById(parcelId)?.toDomain()
+            ?: uiState.value.parcels.firstOrNull { it.id == parcelId } ?: return
+        if (parcel.latitude == null || parcel.longitude == null) return
+        
+        runCatching {
+            val baseData = agriService.fetchAgriData(parcelId, parcel.latitude, parcel.longitude)
+            val pests = agriService.checkPests(parcelId, parcel.latitude, parcel.longitude)
+            val grids = agriService.getHistoricalGrids(parcel.latitude, parcel.longitude)
+            
+            baseData.copy(
+                pestPredictions = pests,
+                historicalGrids = grids
+            )
+        }.onSuccess {
+            dao.upsertAgriData(listOf(it.toCacheEntity()))
+        }
+    }
+
+    override suspend fun refreshPestPredictions(parcelId: String) {
+        refreshSatelliteData(parcelId)
+    }
+
+    override suspend fun refreshHistoricalGrids(parcelId: String) {
+        refreshSatelliteData(parcelId)
+    }
+
+    override suspend fun calculateAgroInsights(parcelId: String) {
+        refreshWeather(parcelId)
+        refreshSatelliteData(parcelId)
+    }
+
     private fun buildTips(): List<AgronomicTip> {
 // ... existing buildTips logic stays the same ...
         return CropCatalog.templates.flatMap { template ->
@@ -505,4 +590,28 @@ class RoomAgroRepository(
             }
         }
     }
+
+    private fun WeatherSnapshot.toCacheEntity(id: String, parcelId: String? = null) = WeatherCacheEntity(
+        id = id,
+        parcelId = parcelId,
+        locationLabel = locationLabel,
+        status = status,
+        rainfallMm = rainfallMm,
+        temperatureC = temperatureC,
+        humidityPercent = humidityPercent,
+        windSpeedKph = windSpeedKph,
+        forecastJson = jsonConv.encodeToString(forecast16Days),
+        online = online,
+        updatedAtEpochMillis = updatedAtEpochMillis
+    )
+
+    private fun com.torresagro.app.domain.model.AgriData.toCacheEntity() = AgriDataEntity(
+        parcelId = parcelId,
+        ndvi = ndvi,
+        soilMoisture = soilMoisture,
+        pestJson = jsonConv.encodeToString(pestPredictions),
+        historicalJson = jsonConv.encodeToString(historicalGrids),
+        source = satelliteSource,
+        lastUpdate = lastUpdate
+    )
 }

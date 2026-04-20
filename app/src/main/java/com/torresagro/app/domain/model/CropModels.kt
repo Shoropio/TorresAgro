@@ -1,5 +1,7 @@
 package com.torresagro.app.domain.model
 
+import kotlinx.serialization.Serializable
+
 enum class CropType(val displayName: String, val cycleDays: Int) {
     Cassava("Yuca", 300),
     SweetPotato("Camote", 150),
@@ -97,13 +99,77 @@ data class HarvestSummary(
     val profit: Double get() = estimatedIncome - totalCost
 }
 
+@Serializable
+data class DailyForecast(
+    val date: String,
+    val tempMax: Double,
+    val tempMin: Double,
+    val rainMm: Double,
+    val condition: String = "",
+    val conditionResId: Int? = null
+)
+
+@Serializable
 data class WeatherSnapshot(
     val locationLabel: String,
-    val status: String,
+    val status: String = "",
+    val statusResId: Int? = null,
     val rainfallMm: Int,
     val temperatureC: Int,
     val humidityPercent: Int,
-    val online: Boolean
+    val windSpeedKph: Double = 0.0,
+    val evapotranspiration: Double? = null,
+    val soilTemperature: Double? = null,
+    val forecast16Days: List<DailyForecast> = emptyList(),
+    val online: Boolean,
+    val source: String = "Open-Meteo",
+    val updatedAtEpochMillis: Long
+)
+
+@Serializable
+data class AgriData(
+    val parcelId: String,
+    val ndvi: Double,
+    val soilMoisture: Double,
+    val pestPredictions: List<PestPrediction> = emptyList(),
+    val historicalGrids: List<HistoricalGrid> = emptyList(),
+    val satelliteSource: String = "EOSDA",
+    val lastUpdate: Long
+)
+
+enum class AlertType { Rain, HeatStress, Pests, Frost }
+enum class AlertSeverity { Low, Medium, High, Critical }
+
+data class AgroAlert(
+    val id: String,
+    val type: AlertType,
+    val message: String,
+    val severity: AlertSeverity,
+    val timestamp: Long
+)
+
+enum class RecommendationType { Irrigation, Sowing, Fertilization, PestControl }
+
+data class Recommendation(
+    val title: String,
+    val description: String,
+    val type: RecommendationType
+)
+
+@Serializable
+data class PestPrediction(
+    val pestName: String,
+    val probability: Double,
+    val description: String = "",
+    val preventiveAction: String = ""
+)
+
+@Serializable
+data class HistoricalGrid(
+    val date: String,
+    val precipitation: Double,
+    val tempMax: Double,
+    val tempMin: Double
 )
 
 data class AgronomicTip(
@@ -120,5 +186,9 @@ data class AppUiState(
     val inventory: List<InventoryItem> = emptyList(),
     val harvests: List<HarvestSummary> = emptyList(),
     val tips: List<AgronomicTip> = emptyList(),
-    val weather: WeatherSnapshot? = null
+    val currentLocationWeather: WeatherSnapshot? = null,
+    val parcelWeatherById: Map<String, WeatherSnapshot> = emptyMap(),
+    val parcelAgriData: Map<String, AgriData> = emptyMap(),
+    val alerts: List<AgroAlert> = emptyList(),
+    val recommendations: List<Recommendation> = emptyList()
 )

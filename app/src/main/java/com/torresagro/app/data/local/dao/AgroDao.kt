@@ -7,14 +7,18 @@ import androidx.room.Query
 import com.torresagro.app.data.local.entity.ActivityRecordEntity
 import com.torresagro.app.data.local.entity.CropObservationEntity
 import com.torresagro.app.data.local.entity.CropTaskEntity
+import com.torresagro.app.data.local.entity.AgriDataEntity
 import com.torresagro.app.data.local.entity.HarvestRecordEntity
 import com.torresagro.app.data.local.entity.InventoryItemEntity
 import com.torresagro.app.data.local.entity.ParcelEntity
 import com.torresagro.app.data.local.entity.SyncQueueEntity
+import com.torresagro.app.data.local.entity.WeatherCacheEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AgroDao {
+    @Query("SELECT * FROM agri_data_cache")
+    fun observeAgriData(): Flow<List<AgriDataEntity>>
     @Query("SELECT * FROM parcels")
     fun observeParcels(): Flow<List<ParcelEntity>>
 
@@ -36,6 +40,9 @@ interface AgroDao {
     @Query("SELECT * FROM harvest_records")
     fun observeHarvests(): Flow<List<HarvestRecordEntity>>
 
+    @Query("SELECT * FROM weather_cache")
+    fun observeWeatherCache(): Flow<List<WeatherCacheEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTasks(items: List<CropTaskEntity>)
 
@@ -56,6 +63,12 @@ interface AgroDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParcels(items: List<ParcelEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertWeatherCache(items: List<WeatherCacheEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAgriData(items: List<AgriDataEntity>)
 
     @Query("UPDATE crop_tasks SET completed = 1 WHERE id = :taskId")
     suspend fun markTaskCompleted(taskId: String)
@@ -83,6 +96,12 @@ interface AgroDao {
 
     @Query("DELETE FROM parcels WHERE id = :parcelId")
     suspend fun deleteParcel(parcelId: String)
+
+    @Query("DELETE FROM weather_cache WHERE parcelId = :parcelId")
+    suspend fun deleteWeatherCacheByParcel(parcelId: String)
+
+    @Query("DELETE FROM agri_data_cache WHERE parcelId = :parcelId")
+    suspend fun deleteAgriDataByParcel(parcelId: String)
 
     @Query("DELETE FROM activity_records WHERE id = :activityId")
     suspend fun deleteActivity(activityId: String)

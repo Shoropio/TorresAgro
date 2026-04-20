@@ -84,3 +84,29 @@ data class SyncQueueEntity(
     val operation: String,
     val createdAt: String
 )
+
+@Entity(tableName = "weather_cache")
+data class WeatherCacheEntity(
+    @PrimaryKey val id: String,
+    val parcelId: String? = null,
+    val locationLabel: String,
+    val status: String,
+    val rainfallMm: Int,
+    val temperatureC: Int,
+    val humidityPercent: Int,
+    val windSpeedKph: Double = 0.0,
+    val forecastJson: String? = null, // JSON string for 16-day forecast
+    val online: Boolean,
+    val updatedAtEpochMillis: Long
+)
+
+@Entity(tableName = "agri_data_cache")
+data class AgriDataEntity(
+    @PrimaryKey val parcelId: String,
+    val ndvi: Double,
+    val soilMoisture: Double,
+    val pestJson: String? = null,
+    val historicalJson: String? = null,
+    val source: String,
+    val lastUpdate: Long
+)

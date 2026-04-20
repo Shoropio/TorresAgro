@@ -244,10 +244,17 @@ class InMemoryAgroRepository : AgroRepository {
                     rainfallMm = 18,
                     temperatureC = 29,
                     humidityPercent = 82,
-                    online = false
+                    windSpeedKph = 5.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    updatedAtEpochMillis = System.currentTimeMillis()
                 )
         }
-        state.update { current -> current.copy(weather = updated) }
+        state.update { current ->
+            current.copy(parcelWeatherById = current.parcelWeatherById + (parcelId to updated))
+        }
     }
 
     override suspend fun refreshWeatherForCoordinates(locationLabel: String, latitude: Double, longitude: Double) {
@@ -259,10 +266,15 @@ class InMemoryAgroRepository : AgroRepository {
                     rainfallMm = 18,
                     temperatureC = 29,
                     humidityPercent = 82,
-                    online = false
+                    windSpeedKph = 5.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    updatedAtEpochMillis = System.currentTimeMillis()
                 )
             }
-        state.update { current -> current.copy(weather = updated) }
+        state.update { current -> current.copy(currentLocationWeather = updated) }
     }
 
     override suspend fun addObservation(
@@ -410,7 +422,88 @@ class InMemoryAgroRepository : AgroRepository {
                 AgronomicTip(CropType.Yam, "Monitoreo", "Revisar drenaje y tutorado cuando aplique; el exceso de agua aumenta problemas en raiz."),
                 AgronomicTip(CropType.Corn, "Abonado", "Fraccionar fertilizacion segun estado del cultivo y humedad del suelo.")
             ),
-            weather = WeatherSnapshot("Lote La Esperanza", "Nublado con lluvias aisladas", 18, 29, 82, false)
+            currentLocationWeather = WeatherSnapshot(
+                locationLabel = "Ubicación actual",
+                status = "Nublado con lluvias aisladas",
+                statusResId = null,
+                rainfallMm = 18,
+                temperatureC = 29,
+                humidityPercent = 82,
+                windSpeedKph = 5.0,
+                evapotranspiration = null,
+                soilTemperature = null,
+                forecast16Days = emptyList(),
+                online = false,
+                source = "Local",
+                updatedAtEpochMillis = System.currentTimeMillis()
+            ),
+            parcelWeatherById = mapOf(
+                "p1" to WeatherSnapshot(
+                    locationLabel = "Lote La Esperanza",
+                    status = "Nublado con lluvias aisladas",
+                    statusResId = null,
+                    rainfallMm = 18,
+                    temperatureC = 29,
+                    humidityPercent = 82,
+                    windSpeedKph = 10.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    source = "Local",
+                    updatedAtEpochMillis = System.currentTimeMillis()
+                ),
+                "p2" to WeatherSnapshot(
+                    locationLabel = "Parcela El Mango",
+                    status = "Parcialmente soleado",
+                    statusResId = null,
+                    rainfallMm = 4,
+                    temperatureC = 30,
+                    humidityPercent = 70,
+                    windSpeedKph = 12.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    source = "Local",
+                    updatedAtEpochMillis = System.currentTimeMillis()
+                ),
+                "p3" to WeatherSnapshot(
+                    locationLabel = "Loma Verde",
+                    status = "Sin lluvia esperada",
+                    statusResId = null,
+                    rainfallMm = 0,
+                    temperatureC = 27,
+                    humidityPercent = 66,
+                    windSpeedKph = 8.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    source = "Local",
+                    updatedAtEpochMillis = System.currentTimeMillis()
+                ),
+                "p4" to WeatherSnapshot(
+                    locationLabel = "Las Palmas",
+                    status = "Lluvia ligera esperada",
+                    statusResId = null,
+                    rainfallMm = 2,
+                    temperatureC = 28,
+                    humidityPercent = 79,
+                    windSpeedKph = 15.0,
+                    evapotranspiration = null,
+                    soilTemperature = null,
+                    forecast16Days = emptyList(),
+                    online = false,
+                    source = "Local",
+                    updatedAtEpochMillis = System.currentTimeMillis()
+                )
+            )
         )
     }
+
+    override suspend fun refreshSatelliteData(parcelId: String) {}
+    override suspend fun refreshPestPredictions(parcelId: String) {}
+    override suspend fun refreshHistoricalGrids(parcelId: String) {}
+    override suspend fun calculateAgroInsights(parcelId: String) {}
 }

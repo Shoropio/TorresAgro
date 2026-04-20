@@ -22,11 +22,11 @@ object FirebaseBootstrap {
         }
 
         val options = FirebaseOptions.Builder()
-            .setApiKey(BuildConfig.FIREBASE_API_KEY)
-            .setApplicationId(BuildConfig.FIREBASE_APP_ID)
-            .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
-            .setStorageBucket(BuildConfig.FIREBASE_STORAGE_BUCKET)
-            .setGcmSenderId(BuildConfig.FIREBASE_GCM_SENDER_ID)
+            .setApiKey(com.torresagro.app.BuildConfig.FIREBASE_API_KEY)
+            .setApplicationId(com.torresagro.app.BuildConfig.FIREBASE_APP_ID)
+            .setProjectId(com.torresagro.app.BuildConfig.FIREBASE_PROJECT_ID)
+            .setStorageBucket(com.torresagro.app.BuildConfig.FIREBASE_STORAGE_BUCKET)
+            .setGcmSenderId(com.torresagro.app.BuildConfig.FIREBASE_GCM_SENDER_ID)
             .build()
 
         FirebaseApp.initializeApp(context, options)
@@ -34,8 +34,8 @@ object FirebaseBootstrap {
     }
 
     fun isConfigured(): Boolean {
-        return BuildConfig.FIREBASE_API_KEY.isNotBlank() &&
-            BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
-            BuildConfig.FIREBASE_PROJECT_ID.isNotBlank()
+        return com.torresagro.app.BuildConfig.FIREBASE_API_KEY.isNotBlank() &&
+            com.torresagro.app.BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
+            com.torresagro.app.BuildConfig.FIREBASE_PROJECT_ID.isNotBlank()
     }
 }

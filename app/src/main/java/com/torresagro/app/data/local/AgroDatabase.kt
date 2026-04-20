@@ -9,7 +9,9 @@ import com.torresagro.app.data.local.entity.CropTaskEntity
 import com.torresagro.app.data.local.entity.HarvestRecordEntity
 import com.torresagro.app.data.local.entity.InventoryItemEntity
 import com.torresagro.app.data.local.entity.ParcelEntity
+import com.torresagro.app.data.local.entity.AgriDataEntity
 import com.torresagro.app.data.local.entity.SyncQueueEntity
+import com.torresagro.app.data.local.entity.WeatherCacheEntity
 
 @Database(
     entities = [
@@ -19,9 +21,11 @@ import com.torresagro.app.data.local.entity.SyncQueueEntity
         CropObservationEntity::class,
         InventoryItemEntity::class,
         HarvestRecordEntity::class,
-        SyncQueueEntity::class
+        SyncQueueEntity::class,
+        WeatherCacheEntity::class,
+        AgriDataEntity::class
     ],
-    version = 3,
+    version = 6,
     exportSchema = false
 )
 abstract class AgroDatabase : RoomDatabase() {

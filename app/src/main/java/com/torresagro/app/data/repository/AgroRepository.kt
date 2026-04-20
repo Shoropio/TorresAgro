@@ -105,4 +105,8 @@ interface AgroRepository {
     suspend fun addInventoryItem(name: String, category: String, stock: Double, unit: String, minimumStock: Double)
     suspend fun updateInventoryItem(id: String, name: String, category: String, stock: Double, unit: String, minimumStock: Double)
     suspend fun deleteInventoryItem(id: String)
+    suspend fun refreshSatelliteData(parcelId: String)
+    suspend fun refreshPestPredictions(parcelId: String)
+    suspend fun refreshHistoricalGrids(parcelId: String)
+    suspend fun calculateAgroInsights(parcelId: String)
 }

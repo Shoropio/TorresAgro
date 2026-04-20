@@ -6,6 +6,7 @@ import com.torresagro.app.data.local.entity.CropTaskEntity
 import com.torresagro.app.data.local.entity.HarvestRecordEntity
 import com.torresagro.app.data.local.entity.InventoryItemEntity
 import com.torresagro.app.data.local.entity.ParcelEntity
+import com.torresagro.app.data.local.entity.WeatherCacheEntity
 import com.torresagro.app.domain.model.ActivityRecord
 import com.torresagro.app.domain.model.ActivityType
 import com.torresagro.app.domain.model.CropObservation
@@ -15,8 +16,15 @@ import com.torresagro.app.domain.model.HarvestSummary
 import com.torresagro.app.domain.model.InventoryItem
 import com.torresagro.app.domain.model.Parcel
 import com.torresagro.app.domain.model.TaskType
+import com.torresagro.app.domain.model.WeatherSnapshot
 
 import com.torresagro.app.ui.util.AreaCalculator
+import com.torresagro.app.data.local.entity.AgriDataEntity
+import com.torresagro.app.domain.model.AgriData
+import com.torresagro.app.domain.model.DailyForecast
+import com.torresagro.app.domain.model.PestPrediction
+import com.torresagro.app.domain.model.HistoricalGrid
+import kotlinx.serialization.json.Json
 
 fun ParcelEntity.toDomain() = Parcel(
     id = id,
@@ -82,4 +90,35 @@ fun HarvestRecordEntity.toDomain() = HarvestSummary(
     harvestedKg = harvestedKg,
     totalCost = totalCost,
     estimatedIncome = estimatedIncome
+)
+
+
+private val jsonConv = Json { ignoreUnknownKeys = true }
+
+fun WeatherCacheEntity.toDomain() = WeatherSnapshot(
+    locationLabel = locationLabel,
+    status = status,
+    rainfallMm = rainfallMm,
+    temperatureC = temperatureC,
+    humidityPercent = humidityPercent,
+    windSpeedKph = windSpeedKph,
+    forecast16Days = forecastJson?.let { 
+        runCatching { jsonConv.decodeFromString<List<DailyForecast>>(it) }.getOrDefault(emptyList())
+    } ?: emptyList(),
+    online = online,
+    updatedAtEpochMillis = updatedAtEpochMillis
+)
+
+fun AgriDataEntity.toDomain() = AgriData(
+    parcelId = parcelId,
+    ndvi = ndvi,
+    soilMoisture = soilMoisture,
+    pestPredictions = pestJson?.let {
+        runCatching { Json.decodeFromString<List<PestPrediction>>(it) }.getOrDefault(emptyList())
+    } ?: emptyList(),
+    historicalGrids = historicalJson?.let {
+        runCatching { Json.decodeFromString<List<HistoricalGrid>>(it) }.getOrDefault(emptyList())
+    } ?: emptyList(),
+    satelliteSource = source,
+    lastUpdate = lastUpdate
 )
