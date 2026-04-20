@@ -36,13 +36,7 @@ class WeatherService {
         // Intentar con Open-Meteo (Primario, sin API Key)
         try {
             val basicWeather = fetchFromOpenMeteo(finalLat, finalLon, locationName)
-            
-            // Si tenemos Visual Crossing, enriquecer con datos agrícolas
-            if (visualCrossingApiKey.isNotEmpty()) {
-                return@withContext enrichWithVisualCrossing(basicWeather, finalLat, finalLon)
-            }
-            
-            return@withContext basicWeather
+            return@withContext enrichWithAgriData(basicWeather, finalLat, finalLon)
         } catch (e: Exception) {
             // Respaldo con OpenWeatherMap si hay API Key
             if (openWeatherApiKey.isNotEmpty()) {
@@ -85,25 +79,26 @@ class WeatherService {
         )
     }
 
-    private suspend fun enrichWithVisualCrossing(snapshot: WeatherSnapshot, lat: Double, lon: Double): WeatherSnapshot {
-        if (visualCrossingApiKey.isBlank()) return snapshot
-        
+    private suspend fun enrichWithAgriData(snapshot: WeatherSnapshot, lat: Double, lon: Double): WeatherSnapshot {
         try {
-            val url = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/$lat,$lon" +
-                    "?unitGroup=metric&elements=datetime,temp,precip,et0,soiltemp00&include=current&key=$visualCrossingApiKey&contentType=json"
+            // Open-Meteo Agriculture API para ET0 y Temperatura del Suelo
+            val url = "https://agriculture-api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
+                    "&hourly=et0_fao_evapotranspiration,soil_temperature_0_to_10cm&timezone=auto&forecast_days=1"
             
             val connection = openConnection(url)
             val responseText = connection.readBodyOrThrow()
-            val response = json.decodeFromString<VisualCrossingResponse>(responseText)
+            val response = json.decodeFromString<OpenMeteoAgriEnrichResponse>(responseText)
             
-            val current = response.currentConditions
+            val et0 = response.hourly.et0_fao_evapotranspiration.firstOrNull() ?: 0.0
+            val soilTemp = response.hourly.soil_temperature_0_to_10cm.firstOrNull() ?: 0.0
+            
             return snapshot.copy(
-                evapotranspiration = current.et0 ?: snapshot.evapotranspiration,
-                soilTemperature = current.soiltemp00 ?: snapshot.soilTemperature,
-                source = "${snapshot.source} + Visual Crossing"
+                evapotranspiration = et0,
+                soilTemperature = soilTemp,
+                source = "${snapshot.source} + Agri"
             )
         } catch (e: Exception) {
-            println("Visual Crossing Error: ${e.message}")
+            println("Agri Enrich Error: ${e.message}")
             return snapshot
         }
     }
@@ -220,14 +215,14 @@ private data class OpenMeteoDaily(
 )
 
 @Serializable
-private data class VisualCrossingResponse(
-    val currentConditions: VisualCrossingCurrent
+private data class OpenMeteoAgriEnrichResponse(
+    val hourly: OpenMeteoAgriEnrichHourly
 )
 
 @Serializable
-private data class VisualCrossingCurrent(
-    val et0: Double? = null,
-    val soiltemp00: Double? = null
+private data class OpenMeteoAgriEnrichHourly(
+    val et0_fao_evapotranspiration: List<Double>,
+    val soil_temperature_0_to_10cm: List<Double>
 )
 
 @Serializable

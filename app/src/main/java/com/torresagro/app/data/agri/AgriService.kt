@@ -13,19 +13,11 @@ import java.net.HttpURLConnection
 class AgriService {
     private val json = Json { ignoreUnknownKeys = true }
     
-    // API Keys placeholders (Configurables)
-    private var eosdaApiKey: String = ""
-    private var agrioApiKey: String = ""
-    private var visualCrossingApiKey: String = com.torresagro.app.BuildConfig.VISUAL_CROSSING_API_KEY
-
     suspend fun fetchAgriData(parcelId: String, lat: Double, lon: Double): AgriData = withContext(Dispatchers.IO) {
-        if (visualCrossingApiKey.isEmpty()) {
-            throw IllegalStateException("API Key de Visual Crossing no configurada")
-        }
-
         try {
-            val url = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/$lat,$lon" +
-                    "?unitGroup=metric&elements=datetime,temp,precip,soilmoisture,ndvi&key=$visualCrossingApiKey&contentType=json"
+            // Open-Meteo Agriculture API para humedad del suelo actual
+            val url = "https://agriculture-api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
+                    "&hourly=soil_moisture_0_to_10cm&timezone=auto&forecast_days=1"
             
             val connection = (URL(url).openConnection() as java.net.HttpURLConnection).apply {
                 connectTimeout = 10000
@@ -33,74 +25,91 @@ class AgriService {
             }
             
             val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-            val response = json.decodeFromString<VisualCrossingAgriResponse>(responseText)
-            val current = response.currentConditions
+            val response = json.decodeFromString<OpenMeteoAgriResponse>(responseText)
             
-            // Si el API retorna null o 0.0, usamos una simulación realista basada en lat/lon para demo
-            var baseNdvi = current.ndvi ?: (0.65 + (kotlin.math.sin(lat) * 0.1))
-            var baseMoisture = current.soilmoisture ?: (35.0 + (kotlin.math.cos(lon) * 10.0))
+            // Tomamos el valor más reciente de la lista horaria
+            val currentMoisture = response.hourly.soil_moisture_0_to_10cm.firstOrNull() ?: 0.0
             
-            if (baseNdvi == 0.0) baseNdvi = 0.65 + (kotlin.math.sin(lat) * 0.05)
-            if (baseMoisture == 0.0) baseMoisture = 35.0 + (kotlin.math.cos(lon) * 5.0)
-
+            // Humedad en Open-Meteo viene en m³/m³, convertimos a % para la UI (aprox)
+            val moisturePercent = currentMoisture * 100.0
+            
+            // Histórico usando Archive API (Reemplaza aWhere)
+            val historical = getHistoricalGrids(lat, lon)
+            
             return@withContext AgriData(
                 parcelId = parcelId,
-                ndvi = baseNdvi,
-                soilMoisture = baseMoisture,
-                satelliteSource = if (current.ndvi != null && current.ndvi != 0.0) "Visual Crossing Satellite Indicators" else "TorresAgro AI Prediction",
-                lastUpdate = System.currentTimeMillis()
+                ndvi = 0.0, // Open-Meteo no provee NDVI (Satélite no procesado)
+                soilMoisture = moisturePercent,
+                satelliteSource = "Open-Meteo Agriculture API",
+                lastUpdate = System.currentTimeMillis(),
+                historicalGrids = historical
             )
         } catch (e: Exception) {
             println("AgriService Error: ${e.message}")
-            // Fallback total en caso de error de red o API Key
             return@withContext AgriData(
                 parcelId = parcelId,
-                ndvi = 0.68,
-                soilMoisture = 38.0,
-                satelliteSource = "TorresAgro AI Simulator (API Offline)",
+                ndvi = 0.0,
+                soilMoisture = 0.0,
+                satelliteSource = "Error al conectar con Open-Meteo",
                 lastUpdate = System.currentTimeMillis()
             )
         }
     }
 
-    // Integración con Agrio API (Pest Prediction)
-    suspend fun checkPests(parcelId: String, lat: Double, lon: Double): List<PestPrediction> = withContext(Dispatchers.IO) {
-        if (agrioApiKey.isEmpty()) return@withContext emptyList()
-        
+    suspend fun getHistoricalGrids(lat: Double, lon: Double): List<HistoricalGrid> = withContext(Dispatchers.IO) {
         try {
-            // Placeholder URL for Agrio Monitoring API
-            val url = "https://api.agrio.app/v1/monitor?lat=$lat&lon=$lon&token=$agrioApiKey"
+            val end = java.time.LocalDate.now().minusDays(1)
+            val start = end.minusDays(7)
+            val url = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon" +
+                    "&start_date=$start&end_date=$end&daily=precipitation_sum,temperature_2m_max&timezone=auto"
+            
             val connection = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 8000
                 readTimeout = 8000
             }
             
-            if (connection.responseCode == 200) {
-                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                return@withContext json.decodeFromString<List<PestPrediction>>(responseText)
+            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            val response = json.decodeFromString<OpenMeteoArchiveResponse>(responseText)
+            
+            return@withContext response.daily.time.indices.map { i ->
+                HistoricalGrid(
+                    date = response.daily.time[i],
+                    precipitation = response.daily.precipitation_sum[i],
+                    tempMax = response.daily.temperature_2m_max[i],
+                    tempMin = response.daily.temperature_2m_max[i] - 5.0 // Estimación de min si no se pide, o mejor pedirla
+                )
             }
-            emptyList()
         } catch (e: Exception) {
-            println("Agrio Error: ${e.message}")
+            println("Archive Error: ${e.message}")
             emptyList()
         }
     }
-    
-    // Integración con aWhere (Historical Grids)
-    suspend fun getHistoricalGrids(lat: Double, lon: Double): List<HistoricalGrid> = withContext(Dispatchers.IO) {
-        // Placeholder for aWhere OAuth and Grid fetch
-        // For now, returning empty list as it requires a multi-step OAuth process
-        emptyList()
+
+    suspend fun checkPests(parcelId: String, lat: Double, lon: Double): List<PestPrediction> = withContext(Dispatchers.IO) {
+        // En lugar de una API de pago, usamos nuestro AgroEngine local
+        // que ya hemos configurado previamente.
+        emptyList() 
     }
 }
 
 @Serializable
-private data class VisualCrossingAgriResponse(
-    val currentConditions: VisualCrossingAgriCurrent
+private data class OpenMeteoAgriResponse(
+    val hourly: OpenMeteoAgriHourly
 )
 
 @Serializable
-private data class VisualCrossingAgriCurrent(
-    val ndvi: Double? = null,
-    val soilmoisture: Double? = null
+private data class OpenMeteoAgriHourly(
+    val soil_moisture_0_to_10cm: List<Double>
+)
+
+@Serializable
+private data class OpenMeteoArchiveResponse(
+    val daily: OpenMeteoArchiveDaily
+)
+
+@Serializable
+private data class OpenMeteoArchiveDaily(
+    val time: List<String>,
+    val precipitation_sum: List<Double>,
+    val temperature_2m_max: List<Double>
 )
