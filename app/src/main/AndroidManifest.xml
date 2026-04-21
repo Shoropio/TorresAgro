@@ -11,6 +11,7 @@
 
     <queries>
         <package android:name="com.google.android.gms" />
+        <package android:name="com.android.vending" />
         <intent>
             <action android:name="com.google.android.gms.auth.api.signin.SERVICE" />
         </intent>
@@ -19,6 +20,12 @@
         </intent>
         <intent>
             <action android:name="com.google.android.gms.auth.api.identity.service.credentialsigning.START" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.identity.service.START" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.common.service.START" />
         </intent>
     </queries>
 

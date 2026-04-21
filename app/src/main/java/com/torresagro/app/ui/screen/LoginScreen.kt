@@ -39,12 +39,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.torresagro.app.R
+import com.torresagro.app.data.firebase.FirebaseAuthManager
+import com.torresagro.app.data.firebase.FirebaseBootstrap
 import com.torresagro.app.ui.component.SurfaceStatChip
 import com.torresagro.app.ui.theme.AccentGold
 import kotlinx.coroutines.launch
@@ -54,6 +58,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val credentialManager = CredentialManager.create(context)
+    val authManager = remember { FirebaseAuthManager() }
     var isLoading by remember { mutableStateOf(false) }
 
     Box(
@@ -154,12 +159,30 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                             .addCredentialOption(googleIdOption)
                                             .build()
 
-                                        credentialManager.getCredential(
+                                        val result = credentialManager.getCredential(
                                             context = context,
                                             request = request
                                         )
 
-                                        onLoginSuccess()
+                                        val credential = result.credential
+                                        if (
+                                            credential is CustomCredential &&
+                                            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                                        ) {
+                                            FirebaseBootstrap.initializeIfPossible(context)
+                                            val googleCredential = GoogleIdTokenCredential
+                                                .createFrom(credential.data)
+                                            val uid = authManager.signInWithGoogleIdToken(
+                                                googleCredential.idToken
+                                            )
+                                            if (uid != null) {
+                                                onLoginSuccess()
+                                            } else {
+                                                Toast.makeText(context, "No se pudo iniciar sesion en Firebase.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "Credencial de Google no valida.", Toast.LENGTH_SHORT).show()
+                                        }
                                     } catch (e: Exception) {
                                         val message = e.message ?: ""
                                         if (e is GetCredentialException && (message.contains("DEVELOPER_ERROR", ignoreCase = true) || message.contains("10"))) {

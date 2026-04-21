@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
 import com.torresagro.app.data.firebase.FirebaseBootstrap
+import com.torresagro.app.data.firebase.FirebaseAuthManager
 import com.torresagro.app.data.firebase.FirebaseSyncGateway
 import com.torresagro.app.data.local.AgroDatabase
 import com.torresagro.app.data.local.util.TaskReminderScheduler
@@ -49,8 +50,10 @@ class MainActivity : ComponentActivity() {
         
         lifecycleScope.launch {
             runCatching {
-                repository.pushPendingChanges()
-                repository.pullLatestData()
+                if (FirebaseAuthManager().currentUid() != null) {
+                    repository.pushPendingChanges()
+                    repository.pullLatestData()
+                }
             }.onFailure {
                 android.util.Log.e("TorresAgro", "Error inicial de Firebase: ${it.message}")
             }

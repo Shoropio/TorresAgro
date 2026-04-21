@@ -22,7 +22,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 import com.torresagro.app.data.firebase.FirebaseAuthManager
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RoomAgroRepository(
@@ -51,7 +50,8 @@ class RoomAgroRepository(
     }
 
     override val uiState: StateFlow<AppUiState> =
-        flowOf(getCurrentUid()).flatMapLatest { uid ->
+        authManager.uidFlow().flatMapLatest { authUid ->
+            val uid = authUid ?: "anonymous"
             combine(
                 combine(
                     dao.observeParcels(uid),
