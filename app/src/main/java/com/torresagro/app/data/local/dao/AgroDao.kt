@@ -94,6 +94,9 @@ interface AgroDao {
     @Query("SELECT * FROM crop_observations WHERE id = :observationId AND userId = :userId LIMIT 1")
     suspend fun findObservationById(observationId: String, userId: String): CropObservationEntity?
 
+    @Query("SELECT * FROM inventory_items WHERE id = :id AND userId = :userId LIMIT 1")
+    suspend fun findInventoryItemById(id: String, userId: String): InventoryItemEntity?
+
     @Query("DELETE FROM parcels WHERE id = :parcelId AND userId = :userId")
     suspend fun deleteParcel(parcelId: String, userId: String)
 
@@ -132,6 +135,9 @@ interface AgroDao {
 
     @Query("DELETE FROM crop_observations WHERE userId = :userId")
     suspend fun clearObservations(userId: String)
+
+    @Query("DELETE FROM inventory_items WHERE userId = :userId")
+    suspend fun clearInventory(userId: String)
 
     @Query("DELETE FROM inventory_items WHERE id = :id AND userId = :userId")
     suspend fun deleteInventoryItem(id: String, userId: String)

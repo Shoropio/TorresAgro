@@ -9,6 +9,7 @@ import com.torresagro.app.data.local.AgroDatabase
 import com.torresagro.app.data.local.entity.ActivityRecordEntity
 import com.torresagro.app.data.local.entity.CropObservationEntity
 import com.torresagro.app.data.local.entity.CropTaskEntity
+import com.torresagro.app.data.local.entity.InventoryItemEntity
 import com.torresagro.app.data.local.entity.ParcelEntity
 import com.torresagro.app.data.local.entity.SyncQueueEntity
 import com.torresagro.app.data.repository.SyncGateway
@@ -24,7 +25,7 @@ class FirebaseSyncGateway(
         if (!FirebaseBootstrap.initializeIfPossible(context)) return
         val uid = FirebaseAuthManager().ensureSignedIn() ?: return
         val firestore = FirebaseFirestore.getInstance()
-        val queue = dao.getSyncQueueItems()
+        val queue = dao.getSyncQueueItems(uid)
 
         queue.forEach { item ->
             when (item.entityType) {
@@ -32,8 +33,9 @@ class FirebaseSyncGateway(
                 "task" -> syncTask(uid, firestore, item)
                 "activity" -> syncActivity(uid, firestore, item)
                 "observation" -> syncObservation(uid, firestore, item)
+                "inventory" -> syncInventory(uid, firestore, item)
             }
-            dao.deleteSyncQueueItem(item.id)
+            dao.deleteSyncQueueItem(item.id, uid)
         }
     }
 
@@ -43,27 +45,32 @@ class FirebaseSyncGateway(
         val firestore = FirebaseFirestore.getInstance()
 
         val parcels = firestore.collection(userPath(uid, "parcels")).get().await().documents.mapNotNull { doc ->
-            doc.toObject(ParcelRemote::class.java)?.toEntity(doc.id)
+            doc.toObject(ParcelRemote::class.java)?.toEntity(doc.id, uid)
         }
         val tasks = firestore.collection(userPath(uid, "tasks")).get().await().documents.mapNotNull { doc ->
-            doc.toObject(TaskRemote::class.java)?.toEntity(doc.id)
+            doc.toObject(TaskRemote::class.java)?.toEntity(doc.id, uid)
         }
         val activities = firestore.collection(userPath(uid, "activities")).get().await().documents.mapNotNull { doc ->
-            doc.toObject(ActivityRemote::class.java)?.toEntity(doc.id)
+            doc.toObject(ActivityRemote::class.java)?.toEntity(doc.id, uid)
         }
         val observations = firestore.collection(userPath(uid, "observations")).get().await().documents.mapNotNull { doc ->
-            doc.toObject(ObservationRemote::class.java)?.toEntity(doc.id)
+            doc.toObject(ObservationRemote::class.java)?.toEntity(doc.id, uid)
+        }
+        val inventory = firestore.collection(userPath(uid, "inventory")).get().await().documents.mapNotNull { doc ->
+            doc.toObject(InventoryRemote::class.java)?.toEntity(doc.id, uid)
         }
 
         database.withTransaction {
-            dao.clearParcels()
-            dao.clearTasks()
-            dao.clearActivities()
-            dao.clearObservations()
+            dao.clearParcels(uid)
+            dao.clearTasks(uid)
+            dao.clearActivities(uid)
+            dao.clearObservations(uid)
+            dao.clearInventory(uid)
             dao.upsertParcels(parcels)
             dao.upsertTasks(tasks)
             dao.upsertActivities(activities)
             dao.upsertObservations(observations)
+            dao.upsertInventory(inventory)
         }
     }
 
@@ -73,7 +80,7 @@ class FirebaseSyncGateway(
             ref.delete().await()
             return
         }
-        val parcel = dao.findParcelById(item.entityId) ?: return
+        val parcel = dao.findParcelById(item.entityId, uid) ?: return
         ref.set(ParcelRemote.from(parcel)).await()
     }
 
@@ -83,7 +90,7 @@ class FirebaseSyncGateway(
             ref.delete().await()
             return
         }
-        val task = dao.findTaskById(item.entityId) ?: return
+        val task = dao.findTaskById(item.entityId, uid) ?: return
         ref.set(TaskRemote.from(task)).await()
     }
 
@@ -97,7 +104,7 @@ class FirebaseSyncGateway(
             ref.delete().await()
             return
         }
-        val activity = dao.findActivityById(item.entityId) ?: return
+        val activity = dao.findActivityById(item.entityId, uid) ?: return
         val uploadedPhoto = uploadIfNeeded(activity.photoUri)
         val payload = ActivityRemote.from(activity.copy(photoUri = uploadedPhoto))
         ref.set(payload).await()
@@ -116,13 +123,23 @@ class FirebaseSyncGateway(
             ref.delete().await()
             return
         }
-        val observation = dao.findObservationById(item.entityId) ?: return
+        val observation = dao.findObservationById(item.entityId, uid) ?: return
         val uploadedPhoto = uploadIfNeeded(observation.photoUri)
         val payload = ObservationRemote.from(observation.copy(photoUri = uploadedPhoto))
         ref.set(payload).await()
         if (uploadedPhoto != observation.photoUri) {
             dao.upsertObservations(listOf(observation.copy(photoUri = uploadedPhoto)))
         }
+    }
+
+    private suspend fun syncInventory(uid: String, firestore: FirebaseFirestore, item: SyncQueueEntity) {
+        val ref = firestore.collection(userPath(uid, "inventory")).document(item.entityId)
+        if (item.operation == "DELETE") {
+            ref.delete().await()
+            return
+        }
+        val inventoryItem = dao.findInventoryItemById(item.entityId, uid) ?: return
+        ref.set(InventoryRemote.from(inventoryItem)).await()
     }
 
     private suspend fun uploadIfNeeded(photoUri: String?): String? {
@@ -145,8 +162,9 @@ data class ParcelRemote(
     val latitude: Double? = null,
     val longitude: Double? = null
 ) {
-    fun toEntity(id: String) = ParcelEntity(
+    fun toEntity(id: String, userId: String) = ParcelEntity(
         id = id,
+        userId = userId,
         name = name,
         locationName = locationName,
         sizeHectares = sizeHectares,
@@ -156,6 +174,7 @@ data class ParcelRemote(
         expectedHarvestDate = expectedHarvestDate,
         latitude = latitude,
         longitude = longitude,
+        boundaryJson = null,
         offlinePendingSync = false
     )
 
@@ -183,7 +202,7 @@ data class TaskRemote(
     val priority: String = "",
     val reminderEnabled: Boolean = false
 ) {
-    fun toEntity(id: String) = CropTaskEntity(id, parcelId, title, dueDate, taskType, completed, priority, reminderEnabled)
+    fun toEntity(id: String, userId: String) = CropTaskEntity(id, userId, parcelId, title, dueDate, taskType, completed, priority, reminderEnabled)
 
     companion object {
         fun from(entity: CropTaskEntity) = TaskRemote(
@@ -207,7 +226,7 @@ data class ActivityRemote(
     val notes: String = "",
     val photoUri: String? = null
 ) {
-    fun toEntity(id: String) = ActivityRecordEntity(id, parcelId, activityType, date, cost, quantity, notes, photoUri)
+    fun toEntity(id: String, userId: String) = ActivityRecordEntity(id, userId, parcelId, activityType, date, cost, quantity, notes, photoUri)
 
     companion object {
         fun from(entity: ActivityRecordEntity) = ActivityRemote(
@@ -231,7 +250,7 @@ data class ObservationRemote(
     val recommendation: String = "",
     val photoUri: String? = null
 ) {
-    fun toEntity(id: String) = CropObservationEntity(id, parcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri)
+    fun toEntity(id: String, userId: String) = CropObservationEntity(id, userId, parcelId, date, cropStage, generalStatus, symptoms, recommendation, photoUri)
 
     companion object {
         fun from(entity: CropObservationEntity) = ObservationRemote(
@@ -242,6 +261,35 @@ data class ObservationRemote(
             symptoms = entity.symptoms,
             recommendation = entity.recommendation,
             photoUri = entity.photoUri
+        )
+    }
+}
+
+data class InventoryRemote(
+    val name: String = "",
+    val category: String = "",
+    val stock: Double = 0.0,
+    val unit: String = "",
+    val minimumStock: Double = 0.0
+) {
+    fun toEntity(id: String, userId: String) = InventoryItemEntity(
+        id = id,
+        userId = userId,
+        name = name,
+        category = category,
+        stock = stock,
+        unit = unit,
+        minimumStock = minimumStock,
+        offlinePendingSync = false
+    )
+
+    companion object {
+        fun from(entity: InventoryItemEntity) = InventoryRemote(
+            name = entity.name,
+            category = entity.category,
+            stock = entity.stock,
+            unit = entity.unit,
+            minimumStock = entity.minimumStock
         )
     }
 }
