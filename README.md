@@ -8,7 +8,7 @@ TorresAgro es una app Android nativa para gestion agricola en campo, pensada par
 - Stack: Kotlin, Jetpack Compose, MVVM, Room, WorkManager, Navigation Compose
 - Estado actual: compila en `debug` y `release`
 - Version actual: `1.0.0`
-- Cultivos incluidos en catalogo base: yuca, camote, name, maiz y otros cultivos configurables desde el dominio
+- Cultivos incluidos en catalogo base: yuca, camote, name, maiz, ayote, pepino, sandia, melon y platano
 
 ## Caracteristicas principales
 
@@ -152,10 +152,9 @@ TorresAgro es una app Android nativa para gestion agricola en campo, pensada par
 
 ### Firebase e integracion
 
-- Firebase Analytics
 - Firebase Auth
 - Firestore
-- Firebase Storage
+- Firebase Storage preparado para fotos si se habilita en el proyecto
 - Bootstrap preparado desde `local.properties`
 
 ## Modulos funcionales
@@ -166,6 +165,7 @@ TorresAgro es una app Android nativa para gestion agricola en campo, pensada par
 - `Agri Map`
 - `Tasks`
 - `Inventory`
+- `Intelligence`
 - `Alerts`
 - `Settings`
 - Formularios de:
@@ -210,12 +210,14 @@ Tablas actuales:
 5. `inventory_items`
 6. `harvest_records`
 7. `sync_queue`
+8. `weather_cache`
+9. `agri_data_cache`
 
 ## Requisitos
 
 - Android Studio con soporte Kotlin/Compose
 - JDK 17
-- Android SDK 34
+- Android SDK 35
 - Dispositivo o emulador Android
 - `local.properties` con SDK path y, si aplica, claves Firebase / clima
 
@@ -234,6 +236,10 @@ Valores contemplados:
 - `firebase.webClientId`
 - `openWeatherApiKey`
 - `visualCrossingApiKey`
+- `release.keystoreFile`
+- `release.keystorePassword`
+- `release.keyAlias`
+- `release.keyPassword`
 
 ## Comandos de build
 
@@ -280,16 +286,20 @@ Salida esperada:
 - [ ] validar `applicationId`, nombre final y branding
 - [x] generar AAB firmado
 - [x] configurar ofuscación y reducción de código (R8/ProGuard)
-- correr QA de campo en varios dispositivos
-- publicar politica de privacidad
-- preparar ficha de Play Console
-- subir capturas, icono final y textos de tienda
+- [ ] correr QA de campo en varios dispositivos
+- [ ] publicar politica de privacidad
+- [ ] preparar ficha de Play Console
+- [ ] subir capturas, icono final y textos de tienda
+- [ ] desplegar reglas Firebase incluidas en el repo
+- [ ] configurar SHA de Play App Signing en Firebase
 
 ## Documentacion adicional
 
 - `docs/arquitectura-mvp.md`
 - `docs/firebase-setup.md`
 - `docs/production-readiness.md`
+- `docs/privacy-policy.md`
+- `docs/play-console-checklist.md`
 
 ## Estado actual del producto
 
