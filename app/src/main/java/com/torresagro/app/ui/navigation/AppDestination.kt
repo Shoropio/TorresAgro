@@ -25,6 +25,7 @@ sealed class AppDestination(val route: String, @StringRes val label: Int) {
     data object Inventory : AppDestination("inventory", R.string.nav_inventory)
     data object NewInventoryItem : AppDestination("new_inventory", R.string.nav_inventory)
     data object EditInventoryItem : AppDestination("edit_inventory", R.string.nav_inventory)
+    data object Intelligence : AppDestination("intelligence", R.string.nav_intelligence)
     
     data object Settings : AppDestination("settings", R.string.nav_settings)
     data object MapParcel : AppDestination("map_parcel", R.string.map_title)

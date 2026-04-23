@@ -44,6 +44,7 @@ fun TorresAgroApp(repository: AgroRepository) {
         AppDestination.Parcels,
         AppDestination.Tasks,
         AppDestination.Inventory,
+        AppDestination.Intelligence,
         AppDestination.Settings
     )
 
@@ -64,6 +65,7 @@ fun TorresAgroApp(repository: AgroRepository) {
                             AppDestination.Parcels -> Icons.Outlined.Map
                             AppDestination.Tasks -> Icons.Outlined.Today
                             AppDestination.Inventory -> Icons.Outlined.Inventory2
+                            AppDestination.Intelligence -> Icons.Outlined.TipsAndUpdates
                             AppDestination.Settings -> Icons.Outlined.Settings
                             else -> Icons.Outlined.Home
                         }
@@ -282,6 +284,9 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onAddItem = { navController.navigate(AppDestination.NewInventoryItem.route) },
                     onEditItem = { id -> navController.navigate("${AppDestination.EditInventoryItem.route}/$id") }
                 )
+            }
+            composable(AppDestination.Intelligence.route) {
+                SmartAgroScreen(state = state)
             }
             composable(AppDestination.NewInventoryItem.route) {
                 InventoryFormScreen(

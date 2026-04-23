@@ -8,6 +8,7 @@ import com.torresagro.app.domain.model.*
 import com.torresagro.app.data.local.entity.*
 import com.torresagro.app.data.agri.AgriService
 import com.torresagro.app.domain.logic.AgroEngine
+import com.torresagro.app.domain.logic.SmartAgroEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -116,7 +117,16 @@ class RoomAgroRepository(
                     parcelWeatherById = parcelWeatherById,
                     parcelAgriData = parcelAgriData,
                     alerts = allAlerts.distinctBy { it.message },
-                    recommendations = allRecs.distinctBy { it.title }
+                    recommendations = allRecs.distinctBy { it.title },
+                    smartAnalyses = SmartAgroEngine.analyze(
+                        parcels = parcels.map { it.toDomain() },
+                        tasks = tasks.map { it.toDomain() },
+                        activities = activities.map { it.toDomain() },
+                        observations = observations.map { it.toDomain() },
+                        weatherByParcel = parcelWeatherById,
+                        agriByParcel = parcelAgriData
+                    ),
+                    technicalLibrary = SmartCropCatalog.technicalSheets
                 )
             }
         }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), AppUiState())
