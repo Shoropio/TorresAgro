@@ -63,6 +63,7 @@ private val AppShapes = Shapes(
 )
 
 @Composable
+@Suppress("DEPRECATION")
 fun TorresAgroTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
