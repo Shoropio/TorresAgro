@@ -264,6 +264,9 @@
     <string name="clear">Limpiar</string>
     <string name="my_location">Mi ubicación</string>
     <string name="point_index">Punto %1$d</string>
+    <string name="location_disabled_message">Activa la ubicación del dispositivo para centrar el mapa.</string>
+    <string name="location_not_found_message">No se pudo obtener la ubicación actual.</string>
+    <string name="location_permission_denied_message">Permite el acceso a ubicación para centrar el mapa en tu posición.</string>
     <string name="status_good">Bueno</string>
     <string name="status_regular">Regular</string>
     <string name="status_alert">Alerta</string>

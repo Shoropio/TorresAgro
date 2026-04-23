@@ -1,6 +1,7 @@
 package com.torresagro.app.ui.screen
 
 import android.Manifest
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -25,6 +26,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
+import com.torresagro.app.ui.util.isLocationEnabled
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
@@ -51,26 +53,57 @@ fun ParcelMapScreen(
 
     var points by remember { mutableStateOf(initialPoints.map { GeoPoint(it.first, it.second) }) }
     var currentCenter by remember { mutableStateOf<GeoPoint?>(initialPoints.firstOrNull()?.let { GeoPoint(it.first, it.second) }) }
+    var locationCenterRequest by remember { mutableIntStateOf(0) }
+    var handledLocationCenterRequest by remember { mutableIntStateOf(0) }
     val area = remember(points) { AreaCalculator.calculateHectares(points.map { it.latitude to it.longitude }) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.values.any { it }) {
-            scope.launch {
-                captureCurrentLocation(context)?.let { coords ->
-                    currentCenter = GeoPoint(coords.first, coords.second)
+            if (!isLocationEnabled(context)) {
+                Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
+            } else {
+                scope.launch {
+                    captureCurrentLocation(context)?.let { coords ->
+                        currentCenter = GeoPoint(coords.first, coords.second)
+                        locationCenterRequest += 1
+                    } ?: Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
                 }
             }
+        } else {
+            Toast.makeText(context, R.string.location_permission_denied_message, Toast.LENGTH_LONG).show()
         }
     }
 
-    LaunchedEffect(Unit) {
+    fun centerMapOnCurrentLocation() {
+        if (!isLocationEnabled(context)) {
+            Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        scope.launch {
+            captureCurrentLocation(context)?.let { coords ->
+                currentCenter = GeoPoint(coords.first, coords.second)
+                locationCenterRequest += 1
+            } ?: Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun requestCurrentLocation() {
         locationPermissionLauncher.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
         )
+    }
+
+    LaunchedEffect(Unit) {
+        if (isLocationEnabled(context)) {
+            requestCurrentLocation()
+        } else {
+            Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
+        }
     }
 
     Scaffold(
@@ -165,9 +198,10 @@ fun ParcelMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { mapView ->
-                    if (points.isNotEmpty()) {
-                        // Keep center on first point if mapping
-                    } else {
+                    if (locationCenterRequest != handledLocationCenterRequest) {
+                        currentCenter?.let { mapView.controller.animateTo(it) }
+                        handledLocationCenterRequest = locationCenterRequest
+                    } else if (points.isEmpty()) {
                         currentCenter?.let { mapView.controller.animateTo(it) }
                     }
                     mapView.overlays.clear()
@@ -224,11 +258,7 @@ fun ParcelMapScreen(
                 // My Location Button
                 FloatingActionButton(
                     onClick = {
-                        scope.launch {
-                            captureCurrentLocation(context)?.let { coords ->
-                                currentCenter = GeoPoint(coords.first, coords.second)
-                            }
-                        }
+                        centerMapOnCurrentLocation()
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer

@@ -17,6 +17,7 @@ suspend fun captureCurrentLocation(context: Context): Pair<Double, Double>? {
     val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     if (!hasFine && !hasCoarse) return null
+    if (!isLocationEnabled(context)) return null
 
     val gmsStatus = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
     if (gmsStatus == ConnectionResult.SUCCESS) {
@@ -40,6 +41,14 @@ suspend fun captureCurrentLocation(context: Context): Pair<Double, Double>? {
     }
 
     return fallbackToLocationManager(context)
+}
+
+fun isLocationEnabled(context: Context): Boolean {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
+    return runCatching {
+        locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }.getOrDefault(false)
 }
 
 private fun fallbackToLocationManager(context: Context): Pair<Double, Double>? {
