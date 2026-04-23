@@ -17,12 +17,12 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.torresagro.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.torresagro.app"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -35,6 +35,10 @@ android {
         buildConfigField("String", "FIREBASE_WEB_CLIENT_ID", "\"${localProperties.getProperty("firebase.webClientId", "TU_WEB_CLIENT_ID_AKI")}\"")
         buildConfigField("String", "OPEN_WEATHER_API_KEY", "\"${localProperties.getProperty("openWeatherApiKey", "")}\"")
         buildConfigField("String", "VISUAL_CROSSING_API_KEY", "\"${localProperties.getProperty("visualCrossingApiKey", "")}\"")
+    }
+
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
     }
 
     signingConfigs {
@@ -87,12 +91,6 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     val firebaseBom = platform("com.google.firebase:firebase-bom:34.12.0")
 
-    // TODO: Add the dependencies for Firebase products you want to use
-    // When using the BoM, don't specify versions in Firebase dependencies
-    implementation("com.google.firebase:firebase-analytics")
-
-    // Add the dependencies for any other desired Firebase products
-    // https://firebase.google.com/docs/android/setup#available-libraries
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
