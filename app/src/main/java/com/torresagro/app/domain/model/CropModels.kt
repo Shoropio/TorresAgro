@@ -5,9 +5,13 @@ import kotlinx.serialization.Serializable
 enum class CropType(val displayName: String, val cycleDays: Int) {
     Cassava("Yuca", 300),
     SweetPotato("Camote", 150),
-    Yam("Name", 240),
-    Corn("Maiz", 120),
-    Plantain("Platano", 330)
+    Yam("\u00d1ame", 240),
+    Corn("Ma\u00edz", 120),
+    Squash("Ayote", 110),
+    Cucumber("Pepino", 90),
+    Watermelon("Sand\u00eda", 75),
+    Melon("Mel\u00f3n", 90),
+    Plantain("Pl\u00e1tano", 365)
 }
 
 enum class TaskType(val label: String) {
@@ -190,5 +194,7 @@ data class AppUiState(
     val parcelWeatherById: Map<String, WeatherSnapshot> = emptyMap(),
     val parcelAgriData: Map<String, AgriData> = emptyMap(),
     val alerts: List<AgroAlert> = emptyList(),
-    val recommendations: List<Recommendation> = emptyList()
+    val recommendations: List<Recommendation> = emptyList(),
+    val smartAnalyses: List<SmartParcelAnalysis> = emptyList(),
+    val technicalLibrary: List<CropTechnicalSheet> = emptyList()
 )
