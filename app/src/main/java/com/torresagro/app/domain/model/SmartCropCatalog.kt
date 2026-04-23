@@ -4,14 +4,14 @@ object SmartCropCatalog {
     private val commonSource = "FAO: semillas vegetativas y manejo de raices/tuberculos; MAG Costa Rica: guias tecnicas, ciclos de cultivo y sanidad vegetal."
 
     val profiles: List<CropProfile> = listOf(
-        rootCrop(CropType.Cassava, "Yuca", 300, listOf("Valencia", "Se\u00f1orita"), "estacas sanas"),
-        rootCrop(CropType.SweetPotato, "Camote", 150, listOf("Beauregard", "Criollo"), "guias vigorosas"),
-        rootCrop(CropType.Yam, "\u00d1ame", 240, listOf("Diamantes", "Criollo"), "semilla o trozos sanos"),
+        rootCrop(CropType.Cassava, 300, listOf("Valencia", "Se\u00f1orita"), "estacas sanas"),
+        rootCrop(CropType.SweetPotato, 150, listOf("Beauregard", "Criollo"), "guias vigorosas"),
+        rootCrop(CropType.Yam, 240, listOf("Diamantes", "Criollo"), "semilla o trozos sanos"),
         grainCrop(),
-        cucurbit(CropType.Squash, "Ayote", 110, listOf("Criollo", "Butternut")),
-        cucurbit(CropType.Cucumber, "Pepino", 90, listOf("Marketmore", "Hibrido local")),
-        cucurbit(CropType.Watermelon, "Sand\u00eda", 75, listOf("Crimson Sweet", "Charleston Gray")),
-        cucurbit(CropType.Melon, "Mel\u00f3n", 90, listOf("Cantaloupe", "Honey Dew")),
+        cucurbit(CropType.Squash, 110, listOf("Criollo", "Butternut")),
+        cucurbit(CropType.Cucumber, 90, listOf("Marketmore", "Hibrido local")),
+        cucurbit(CropType.Watermelon, 75, listOf("Crimson Sweet", "Charleston Gray")),
+        cucurbit(CropType.Melon, 90, listOf("Cantaloupe", "Honey Dew")),
         plantainCrop()
     )
 
@@ -21,7 +21,6 @@ object SmartCropCatalog {
 
     private fun rootCrop(
         cropType: CropType,
-        label: String,
         cycleDays: Int,
         varieties: List<String>,
         plantingMaterial: String
@@ -106,7 +105,7 @@ object SmartCropCatalog {
         return CropProfile(CropType.Corn, listOf(CropVariety("Amarillo", 105, "Ciclo medio.")), stages, listOf(CropRiskProfile("Estres en floracion", listOf("calor", "baja humedad"), "Priorizar riego o conservacion de humedad.")), tasks, baseRules(CropType.Corn), sheet)
     }
 
-    private fun cucurbit(cropType: CropType, label: String, cycleDays: Int, varieties: List<String>): CropProfile {
+    private fun cucurbit(cropType: CropType, cycleDays: Int, varieties: List<String>): CropProfile {
         val stages = listOf(
             PhenologicalStage("soil", "Preparacion y siembra", 0, 7, listOf("camas", "semilla", "drenaje")),
             PhenologicalStage("establishment", "Establecimiento", 8, 25, listOf("riego", "resiembra", "malezas")),

@@ -14,11 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.AutoGraph
-import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +55,7 @@ fun SmartAgroScreen(state: AppUiState) {
                 SurfaceStatChip(
                     label = "Cultivos",
                     value = state.technicalLibrary.size.toString(),
-                    icon = Icons.Default.LibraryBooks,
+                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
                     modifier = Modifier.weight(1f),
                     accent = AccentSky
                 )
