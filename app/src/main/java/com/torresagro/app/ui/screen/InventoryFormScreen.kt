@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.torresagro.app.R
 import com.torresagro.app.domain.model.InventoryItem
+import com.torresagro.app.ui.util.CostaRicaMeasureUnits
+import com.torresagro.app.ui.util.formatQuantity
 
 @Composable
 fun InventoryFormScreen(
@@ -44,7 +46,7 @@ fun InventoryFormScreen(
     var name by remember { mutableStateOf(initialItem?.name ?: "") }
     var category by remember { mutableStateOf(initialItem?.category ?: "") }
     var stock by remember { mutableStateOf(initialItem?.stock?.toString() ?: "") }
-    var unit by remember { mutableStateOf(initialItem?.unit ?: "Kg") }
+    var unit by remember { mutableStateOf(initialItem?.unit ?: "kg") }
     var minStock by remember { mutableStateOf(initialItem?.minimumStock?.toString() ?: "5.0") }
 
     val parsedStock = remember(stock) { stock.normalizedDecimalOrNull() }
@@ -87,7 +89,7 @@ fun InventoryFormScreen(
             InventoryFormStatRow(
                 listOf(
                     "Estado" to if (initialItem == null) "Nuevo" else "Edicion",
-                    "Stock" to (parsedStock?.toString() ?: "--")
+                    "Stock" to (parsedStock?.let { "${formatQuantity(it)} $unit" } ?: "--")
                 )
             )
         }
@@ -137,15 +139,11 @@ fun InventoryFormScreen(
                     supportingText = stockError?.let { { Text(it) } },
                     shape = RoundedCornerShape(8.dp)
                 )
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = { unit = it },
-                    label = { Text(stringResource(R.string.unit_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = unitError != null,
-                    supportingText = unitError?.let { { Text(it) } },
-                    shape = RoundedCornerShape(8.dp)
+                OptionPicker(
+                    title = stringResource(R.string.unit_label),
+                    selectedLabel = unit,
+                    options = CostaRicaMeasureUnits.inventoryUnits,
+                    onSelect = { unit = it }
                 )
 
                 OutlinedTextField(

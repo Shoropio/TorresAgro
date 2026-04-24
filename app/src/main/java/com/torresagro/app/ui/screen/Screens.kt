@@ -30,14 +30,19 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.TipsAndUpdates
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
@@ -58,10 +63,15 @@ import com.torresagro.app.ui.theme.AccentGold
 import com.torresagro.app.ui.theme.AccentSky
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
+import com.torresagro.app.ui.util.formatCurrencyCrc
+import com.torresagro.app.ui.util.formatQuantity
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,7 +228,7 @@ fun HomeScreen(
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.EditCalendar, // Changed from refresh for simplicity if not imported
+                                    imageVector = Icons.Default.Refresh,
                                     contentDescription = stringResource(R.string.update),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(18.dp)
@@ -234,6 +244,12 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                WeatherConditionIcon(
+                                    conditionResId = weather.statusResId,
+                                    conditionLabel = weather.status,
+                                    modifier = Modifier.size(52.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = "${weather.temperatureC}°",
                                     style = MaterialTheme.typography.displayLarge.copy(
@@ -264,6 +280,20 @@ fun HomeScreen(
                                     WeatherDetailItem(label = stringResource(R.string.humidity), value = "${weather.humidityPercent}%")
                                     Text("|", color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
                                     WeatherDetailItem(label = stringResource(R.string.rainfall), value = "${weather.rainfallMm}mm")
+                                }
+                            }
+                        }
+                        if (weather.forecast16Days.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(top = 2.dp)
+                            ) {
+                                items(
+                                    items = weather.forecast16Days.take(8),
+                                    key = { it.date }
+                                ) { forecast ->
+                                    CompactForecastChip(forecast)
                                 }
                             }
                         }
@@ -590,21 +620,22 @@ fun ParcelDetailScreen(
                     key = { it.date }
                 ) { forecast ->
                     Card(
-                        modifier = Modifier.width(100.dp),
+                        modifier = Modifier.width(110.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Column(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(forecast.date.split("-").last(), style = MaterialTheme.typography.labelSmall)
-                            if (forecast.conditionResId != null) {
-                                Text(stringResource(forecast.conditionResId), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            } else if (forecast.condition.isNotBlank()) {
-                                Text(forecast.condition, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
+                            Text(forecastDayLabel(forecast.date), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            WeatherConditionIcon(
+                                conditionResId = forecast.conditionResId,
+                                conditionLabel = forecast.condition,
+                                modifier = Modifier.size(28.dp)
+                            )
                             Text("${forecast.tempMax.toInt()}°", fontWeight = FontWeight.Bold)
                             Text("${forecast.tempMin.toInt()}°", style = MaterialTheme.typography.bodySmall)
                             Text("${forecast.rainMm}mm", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
@@ -775,7 +806,7 @@ fun ParcelDetailScreen(
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(activity.activityType.label, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.date_format_label) + ": ${activity.date}")
-                    Text(stringResource(R.string.cost_label) + ": ₡${activity.cost} | " + stringResource(R.string.quantity_label) + ": ${activity.quantity}")
+                    Text(stringResource(R.string.cost_label) + ": " + formatCurrencyCrc(activity.cost) + " | " + stringResource(R.string.quantity_label) + ": ${activity.quantity}")
                     Text(activity.notes)
                     activity.photoUri?.let { photoUri ->
                         AsyncImage(
@@ -983,20 +1014,20 @@ fun InventoryScreen(state: AppUiState) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            stringResource(R.string.current_stock_label, item.stock.toString(), item.unit),
+                            stringResource(R.string.current_stock_label, formatQuantity(item.stock), item.unit),
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (lowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (lowStock) {
                             Text(
-                                stringResource(R.string.restock_soon, item.minimumStock.toString()),
+                                stringResource(R.string.restock_soon, "${formatQuantity(item.minimumStock)} ${item.unit}"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
                             Text(
-                                stringResource(R.string.suggested_minimum, item.minimumStock.toString(), item.unit),
+                                stringResource(R.string.suggested_minimum, formatQuantity(item.minimumStock), item.unit),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
@@ -1047,11 +1078,11 @@ fun ReportsScreen(state: AppUiState) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text(stringResource(R.string.invested_cost), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("₡${report.totalCost}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                            Text(formatCurrencyCrc(report.totalCost), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(stringResource(R.string.net_profit), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("₡${report.profit}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF2E7D32))
+                            Text(formatCurrencyCrc(report.profit), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF2E7D32))
                         }
                     }
                 }
@@ -1074,6 +1105,101 @@ fun WeatherDetailItem(label: String, value: String) {
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
+}
+
+@Composable
+private fun CompactForecastChip(forecast: DailyForecast) {
+    Card(
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.32f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = forecastDayLabel(forecast.date),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                fontWeight = FontWeight.Bold
+            )
+            WeatherConditionIcon(
+                conditionResId = forecast.conditionResId,
+                conditionLabel = forecast.condition,
+                tintOverride = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(24.dp)
+            )
+            Text(
+                text = "${forecast.tempMax.toInt()}°·${forecast.tempMin.toInt()}°",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeatherConditionIcon(
+    conditionResId: Int?,
+    conditionLabel: String,
+    modifier: Modifier = Modifier,
+    tintOverride: Color? = null
+) {
+    val iconType = weatherVisualType(conditionResId, conditionLabel)
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        when (iconType) {
+            WeatherVisualType.Clear -> Icon(Icons.Default.WbSunny, contentDescription = null, tint = tintOverride ?: Color(0xFFFFB300), modifier = Modifier.fillMaxSize())
+            WeatherVisualType.PartlyCloudy -> {
+                Icon(Icons.Default.WbSunny, contentDescription = null, tint = Color(0xFFFFB300), modifier = Modifier.fillMaxSize(0.82f).offset(x = (-6).dp, y = (-4).dp))
+                Icon(Icons.Default.Cloud, contentDescription = null, tint = tintOverride ?: Color(0xFFCFD8DC), modifier = Modifier.fillMaxSize())
+            }
+            WeatherVisualType.Cloudy,
+            WeatherVisualType.Fog -> Icon(Icons.Default.Cloud, contentDescription = null, tint = tintOverride ?: Color(0xFFCFD8DC), modifier = Modifier.fillMaxSize())
+            WeatherVisualType.Rain -> {
+                Icon(Icons.Default.Cloud, contentDescription = null, tint = tintOverride ?: Color(0xFFCFD8DC), modifier = Modifier.fillMaxSize())
+                Icon(Icons.Default.WaterDrop, contentDescription = null, tint = Color(0xFF1E88E5), modifier = Modifier.fillMaxSize(0.42f).offset(y = 9.dp))
+            }
+            WeatherVisualType.Storm -> {
+                Icon(Icons.Default.Cloud, contentDescription = null, tint = tintOverride ?: Color(0xFFB0BEC5), modifier = Modifier.fillMaxSize())
+                Icon(Icons.Default.Thunderstorm, contentDescription = null, tint = Color(0xFFFFA000), modifier = Modifier.fillMaxSize(0.62f).offset(y = 3.dp))
+            }
+            WeatherVisualType.Snow -> {
+                Icon(Icons.Default.Cloud, contentDescription = null, tint = tintOverride ?: Color(0xFFCFD8DC), modifier = Modifier.fillMaxSize())
+                Icon(Icons.Default.AcUnit, contentDescription = null, tint = Color(0xFF90CAF9), modifier = Modifier.fillMaxSize(0.40f).offset(y = 9.dp))
+            }
+        }
+    }
+}
+
+private enum class WeatherVisualType {
+    Clear, PartlyCloudy, Cloudy, Rain, Storm, Snow, Fog
+}
+
+private fun weatherVisualType(conditionResId: Int?, conditionLabel: String): WeatherVisualType {
+    return when {
+        conditionResId == R.string.weather_thunderstorm -> WeatherVisualType.Storm
+        conditionResId == R.string.weather_rain || conditionResId == R.string.weather_drizzle || conditionResId == R.string.weather_showers -> WeatherVisualType.Rain
+        conditionResId == R.string.weather_snow -> WeatherVisualType.Snow
+        conditionResId == R.string.weather_fog -> WeatherVisualType.Fog
+        conditionResId == R.string.weather_partly_cloudy -> WeatherVisualType.PartlyCloudy
+        conditionResId == R.string.weather_clear -> WeatherVisualType.Clear
+        conditionLabel.contains("torment", ignoreCase = true) -> WeatherVisualType.Storm
+        conditionLabel.contains("lluv", ignoreCase = true) || conditionLabel.contains("chub", ignoreCase = true) -> WeatherVisualType.Rain
+        conditionLabel.contains("nieve", ignoreCase = true) -> WeatherVisualType.Snow
+        conditionLabel.contains("niebla", ignoreCase = true) -> WeatherVisualType.Fog
+        conditionLabel.contains("nublado", ignoreCase = true) || conditionLabel.contains("cloud", ignoreCase = true) -> WeatherVisualType.Cloudy
+        else -> WeatherVisualType.PartlyCloudy
+    }
+}
+
+private fun forecastDayLabel(date: String): String {
+    val parsed = runCatching { LocalDate.parse(date) }.getOrNull() ?: return date.takeLast(2)
+    return parsed.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("es", "MX"))
+        .replace(".", "")
+        .lowercase()
 }
 
 @Composable
@@ -1221,8 +1347,14 @@ private fun formatWeatherUpdatedAt(updatedAtEpochMillis: Long, context: android.
 fun AlertsCenterScreen(
     uiState: AppUiState,
     onParcelClick: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onAlertOpen: (AlertSeverity) -> Unit = {},
+    onRecommendationOpen: (RecommendationType) -> Unit = {},
+    onScreenViewed: (Int, Int) -> Unit = { _, _ -> }
 ) {
+    LaunchedEffect(uiState.alerts.size, uiState.recommendations.size) {
+        onScreenViewed(uiState.alerts.size, uiState.recommendations.size)
+    }
     Scaffold(
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
@@ -1315,6 +1447,7 @@ fun AlertsCenterScreen(
                             TextButton(
                                 onClick = { 
                                     // Navegar a la primera parcela que coincida o una genérica
+                                    onAlertOpen(alert.severity)
                                     uiState.parcels.firstOrNull()?.id?.let(onParcelClick)
                                 },
                                 modifier = Modifier.align(Alignment.End)
@@ -1332,7 +1465,9 @@ fun AlertsCenterScreen(
 
             items(uiState.recommendations) { rec ->
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onRecommendationOpen(rec.type) },
                     shape = RoundedCornerShape(8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
                     border = CardDefaults.outlinedCardBorder()
@@ -1357,3 +1492,4 @@ fun AlertsCenterScreen(
         }
     }
 }
+

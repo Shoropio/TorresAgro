@@ -42,8 +42,10 @@ import com.torresagro.app.ui.component.EmptyStateCard
 import com.torresagro.app.ui.component.SectionTitle
 import com.torresagro.app.ui.theme.AccentGold
 import com.torresagro.app.ui.theme.AccentSky
+import com.torresagro.app.ui.util.CostaRicaMeasureUnits
 import com.torresagro.app.ui.util.createTempImageUri
 import com.torresagro.app.ui.util.captureCurrentLocation
+import com.torresagro.app.ui.util.formatCurrencyCrc
 import java.time.LocalDate
 import java.util.Locale
 
@@ -531,10 +533,16 @@ fun NewActivityScreen(
                         value = costText,
                         onValueChange = { costText = it },
                         label = { Text(stringResource(R.string.cost_label)) },
+                        prefix = { Text("₡") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         isError = costError != null,
-                        supportingText = costError?.let { { Text(it) } },
+                        supportingText = {
+                            when {
+                                costError != null -> Text(costError)
+                                parsedCost != null -> Text("Se vera como ${formatCurrencyCrc(parsedCost)}")
+                            }
+                        },
                         shape = RoundedCornerShape(8.dp)
                     )
                     OutlinedTextField(
@@ -544,7 +552,12 @@ fun NewActivityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         isError = quantityError != null,
-                        supportingText = quantityError?.let { { Text(it) } },
+                        supportingText = {
+                            when {
+                                quantityError != null -> Text(quantityError)
+                                else -> Text(CostaRicaMeasureUnits.activityQuantityExamples(activityType))
+                            }
+                        },
                         shape = RoundedCornerShape(8.dp)
                     )
                     OutlinedTextField(
@@ -626,7 +639,7 @@ fun NewActivityScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OptionPicker(
+fun OptionPicker(
     title: String,
     selectedLabel: String,
     options: List<String>,
