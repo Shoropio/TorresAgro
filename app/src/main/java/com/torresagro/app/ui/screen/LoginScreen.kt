@@ -46,6 +46,7 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.torresagro.app.data.firebase.AnalyticsTracker
 import com.torresagro.app.R
 import com.torresagro.app.data.firebase.FirebaseAuthManager
 import com.torresagro.app.data.firebase.FirebaseBootstrap
@@ -139,12 +140,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     } else {
                         Button(
                             onClick = {
+                                AnalyticsTracker.logLoginAttempt(context, "google")
                                 isLoading = true
                                 coroutineScope.launch {
                                     try {
                                         val playServicesStatus = GoogleApiAvailability.getInstance()
                                             .isGooglePlayServicesAvailable(context)
                                         if (playServicesStatus != ConnectionResult.SUCCESS) {
+                                            AnalyticsTracker.logLoginResult(context, "google", "play_services_unavailable")
                                             Toast.makeText(context, "Entrando sin Google en este dispositivo.", Toast.LENGTH_LONG).show()
                                             onLoginSuccess()
                                             return@launch
@@ -176,24 +179,31 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                                 googleCredential.idToken
                                             )
                                             if (uid != null) {
+                                                AnalyticsTracker.setUserId(context, uid)
+                                                AnalyticsTracker.logLoginResult(context, "google", "success")
                                                 onLoginSuccess()
                                             } else {
+                                                AnalyticsTracker.logLoginResult(context, "google", "firebase_failed")
                                                 Toast.makeText(context, "No se pudo iniciar sesion en Firebase.", Toast.LENGTH_SHORT).show()
                                             }
                                         } else {
+                                            AnalyticsTracker.logLoginResult(context, "google", "invalid_credential")
                                             Toast.makeText(context, "Credencial de Google no valida.", Toast.LENGTH_SHORT).show()
                                         }
                                     } catch (e: Exception) {
                                         val message = e.message ?: ""
                                         if (e is GetCredentialException && (message.contains("DEVELOPER_ERROR", ignoreCase = true) || message.contains("10"))) {
+                                            AnalyticsTracker.logLoginResult(context, "google", "developer_error_fallback")
                                             Toast.makeText(context, "Rescatando sesion... (Dispositivo con GMS limitado)", Toast.LENGTH_LONG).show()
                                             onLoginSuccess()
                                         } else if (e is SecurityException) {
                                             android.util.Log.e("TorresAgro", "SecurityException en Login: $message")
+                                            AnalyticsTracker.logLoginResult(context, "google", "security_fallback")
                                             Toast.makeText(context, "Error de seguridad GMS. Reintentando...", Toast.LENGTH_LONG).show()
                                             // Fallback: Permitir entrar si el error es persistente con el broker de Google
                                             onLoginSuccess()
                                         } else {
+                                            AnalyticsTracker.logLoginResult(context, "google", "error")
                                             Toast.makeText(context, "Error: $message", Toast.LENGTH_SHORT).show()
                                         }
                                     } finally {

@@ -19,6 +19,7 @@ weather_*.json
 
 # Firebase
 google-services.json
+/app/google-services.json
 
 # Keys and credentials
 *.jks

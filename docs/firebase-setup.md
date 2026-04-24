@@ -32,6 +32,11 @@ Servicios a habilitar:
 
 En Firebase Console, agregar el SHA-1 y SHA-256 del certificado usado para release. Si se usa Play App Signing, tambien agregar los certificados que Play Console muestre para firma de app.
 
+Estado actual:
+
+- El `SHA-1` del keystore local de release ya fue agregado al Android app de Firebase.
+- Sigue pendiente agregar el certificado de `Play App Signing` cuando aparezca en Play Console despues de configurar el track.
+
 Comando local:
 
 ```powershell
@@ -66,6 +71,11 @@ Despliegue:
 ```powershell
 firebase deploy --only firestore:rules,storage
 ```
+
+Estado actual:
+
+- `firestore.rules` ya fue desplegado correctamente.
+- `storage.rules` sigue pendiente porque Firebase Storage aun no esta inicializado en el proyecto `torresagro`.
 
 ## Archivos principales
 

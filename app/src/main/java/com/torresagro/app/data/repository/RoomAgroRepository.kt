@@ -1,5 +1,6 @@
 package com.torresagro.app.data.repository
 
+import android.util.Log
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.data.local.dao.AgroDao
 import com.torresagro.app.data.local.util.TaskReminderScheduler
@@ -40,6 +41,7 @@ class RoomAgroRepository(
 
     companion object {
         private const val CURRENT_LOCATION_WEATHER_ID = "current_location"
+        private const val TAG = "RoomAgroRepository"
     }
 
     override suspend fun pushPendingChanges() {
@@ -442,9 +444,10 @@ class RoomAgroRepository(
                 weatherService.fetchWeather(parcel.locationName, parcel.latitude, parcel.longitude)
             }.onSuccess {
                 updatedWeather = it
+                Log.d(TAG, "Clima actualizado para parcela ${parcel.id} con fuente ${it.source}")
             }.onFailure {
                 if (attempts < 3) kotlinx.coroutines.delay(1000)
-                android.util.Log.e("RoomAgro", "Intento $attempts de clima fallido: ${it.message}")
+                Log.e(TAG, "Intento $attempts de clima fallido para parcela ${parcel.id}: ${it.message}", it)
             }
         }
 
@@ -464,8 +467,10 @@ class RoomAgroRepository(
         val uid = getCurrentUid()
         val updatedWeather = runCatching {
             weatherService.fetchWeather(locationLabel, latitude, longitude)
+        }.onSuccess {
+            Log.d(TAG, "Clima actualizado para coordenadas $latitude,$longitude con fuente ${it.source}")
         }.getOrElse {
-            android.util.Log.w("RoomAgroRepository", "No se pudo actualizar el clima para coordenadas $latitude,$longitude", it)
+            Log.w(TAG, "No se pudo actualizar el clima para coordenadas $latitude,$longitude", it)
             WeatherSnapshot(
                 locationLabel = locationLabel,
                 status = "Sin conexión: modo lectura",

@@ -36,11 +36,18 @@ app/build/outputs/bundle/release/app-release.aab
 - Subir AAB a Internal Testing en Play Console.
 - Configurar Play App Signing.
 - Agregar SHA-1/SHA-256 de Play App Signing en Firebase.
-- Desplegar `firestore.rules` y `storage.rules`.
+- Inicializar Firebase Storage en el proyecto y luego desplegar `storage.rules`.
 - Publicar politica de privacidad en una URL HTTPS.
 - Completar Data Safety de Google Play.
 - Ejecutar QA de campo en dispositivos reales.
 - Rotar claves si `local.properties` o `google-services.json` fueron compartidos fuera del equipo.
+
+## Avance operativo ya validado
+
+- `firestore.rules` ya fue desplegado al proyecto `torresagro`.
+- El `SHA-1` del keystore local de release ya fue registrado en Firebase para Android Google Sign-In.
+- `app/google-services.json` ya fue regenerado y validado con ese SHA.
+- Firebase CLI ya quedo apuntando por defecto a `torresagro` via `.firebaserc`.
 
 ## Pendiente tecnico recomendado
 

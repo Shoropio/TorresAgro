@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import android.content.Intent
 import androidx.core.content.FileProvider
+import com.torresagro.app.data.firebase.AnalyticsTracker
 import com.torresagro.app.data.report.ReportService
 import com.torresagro.app.data.repository.AgroRepository
 import com.torresagro.app.ui.navigation.AppDestination
@@ -51,6 +52,10 @@ fun TorresAgroApp(repository: AgroRepository) {
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
+
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let { AnalyticsTracker.logScreenView(context, it) }
+    }
 
     Scaffold(
         bottomBar = {
@@ -98,6 +103,7 @@ fun TorresAgroApp(repository: AgroRepository) {
             onRefresh = {
                 isRefreshing = true
                 scope.launch {
+                    AnalyticsTracker.logManualSync(context, "pull_to_refresh")
                     viewModel.sync()
                     delay(1500)
                     isRefreshing = false
@@ -170,6 +176,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     updatedBoundary = boundaryResult,
                     calculatedArea = areaResult,
                     onSave = { name, location, size, cropType, variety, sowingDate, latitude, longitude, pts ->
+                        AnalyticsTracker.logParcelSaved(
+                            context = context,
+                            cropType = cropType.name,
+                            hasBoundary = pts.isNotEmpty(),
+                            hasCoordinates = latitude != null && longitude != null,
+                            isEdit = false
+                        )
                         viewModel.addParcel(name, location, size, cropType, variety, sowingDate, latitude, longitude, pts)
                         navController.popBackStack()
                     },
@@ -191,6 +204,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     updatedBoundary = boundaryResult,
                     calculatedArea = areaResult,
                     onSave = { name, location, size, cropType, variety, sowingDate, latitude, longitude, pts ->
+                        AnalyticsTracker.logParcelSaved(
+                            context = context,
+                            cropType = cropType.name,
+                            hasBoundary = pts.isNotEmpty(),
+                            hasCoordinates = latitude != null && longitude != null,
+                            isEdit = true
+                        )
                         viewModel.updateParcel(parcelId, name, location, size, cropType, variety, sowingDate, latitude, longitude, pts)
                         navController.popBackStack()
                     },
@@ -255,6 +275,12 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onGenerateReport = { parcel, agriData ->
                         val file = reportService.generateParcelReport(parcel, agriData)
                         if (file != null) {
+                            AnalyticsTracker.logReportGenerated(
+                                context = context,
+                                cropType = parcel.cropType.name,
+                                hasAgriData = agriData != null,
+                                result = "success"
+                            )
                             val uri = FileProvider.getUriForFile(
                                 context,
                                 "${context.packageName}.fileprovider",
@@ -266,6 +292,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             context.startActivity(Intent.createChooser(intent, "Compartir Reporte"))
+                        } else {
+                            AnalyticsTracker.logReportGenerated(
+                                context = context,
+                                cropType = parcel.cropType.name,
+                                hasAgriData = agriData != null,
+                                result = "failed"
+                            )
                         }
                     }
                 )
@@ -286,11 +319,38 @@ fun TorresAgroApp(repository: AgroRepository) {
                 )
             }
             composable(AppDestination.Intelligence.route) {
-                SmartAgroScreen(state = state)
+                SmartAgroScreen(
+                    state = state,
+                    onScreenViewed = { suggestionCount, libraryCount, parcelAnalysisCount ->
+                        AnalyticsTracker.logSmartScreenSummary(
+                            context = context,
+                            suggestionCount = suggestionCount,
+                            libraryCount = libraryCount,
+                            parcelAnalysisCount = parcelAnalysisCount
+                        )
+                    },
+                    onSuggestionOpen = { suggestion ->
+                        AnalyticsTracker.logSmartSuggestionOpen(
+                            context = context,
+                            source = suggestion.source.name,
+                            priority = suggestion.priority,
+                            confidencePercent = (suggestion.confidence * 100).toInt()
+                        )
+                    },
+                    onTechnicalSheetOpen = { cropType ->
+                        AnalyticsTracker.logTechnicalSheetOpen(context, cropType)
+                    }
+                )
             }
             composable(AppDestination.NewInventoryItem.route) {
                 InventoryFormScreen(
                     onSave = { name, cat, stock, unit, min ->
+                        AnalyticsTracker.logInventorySaved(
+                            context = context,
+                            category = cat,
+                            lowStock = stock <= min,
+                            isEdit = false
+                        )
                         viewModel.addInventoryItem(name, cat, stock, unit, min)
                         navController.popBackStack()
                     },
@@ -303,6 +363,12 @@ fun TorresAgroApp(repository: AgroRepository) {
                 InventoryFormScreen(
                     initialItem = item,
                     onSave = { name, cat, stock, unit, min ->
+                        AnalyticsTracker.logInventorySaved(
+                            context = context,
+                            category = cat,
+                            lowStock = stock <= min,
+                            isEdit = true
+                        )
                         viewModel.updateInventoryItem(id, name, cat, stock, unit, min)
                         navController.popBackStack()
                     },
@@ -316,6 +382,8 @@ fun TorresAgroApp(repository: AgroRepository) {
             composable(AppDestination.Settings.route) {
                 SettingsScreen(
                     onSignOut = {
+                        AnalyticsTracker.logSignOut(context)
+                        AnalyticsTracker.clearUserId(context)
                         authManager.signOut()
                         navController.navigate(AppDestination.Login.route) {
                             popUpTo(0) { inclusive = true }
@@ -328,6 +396,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                 TaskFormScreen(
                     parcels = state.parcels,
                     onSave = { parcelId, title, dueDate, taskType, priority, reminderEnabled, _ ->
+                        AnalyticsTracker.logTaskSaved(
+                            context = context,
+                            taskType = taskType.name,
+                            priority = priority,
+                            reminderEnabled = reminderEnabled,
+                            isEdit = false
+                        )
                         viewModel.addTask(parcelId, title, dueDate, taskType, priority, reminderEnabled)
                         navController.popBackStack()
                     },
@@ -341,6 +416,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     parcels = state.parcels,
                     initialTask = task,
                     onSave = { parcelId, title, dueDate, taskType, priority, reminder, completed ->
+                        AnalyticsTracker.logTaskSaved(
+                            context = context,
+                            taskType = taskType.name,
+                            priority = priority,
+                            reminderEnabled = reminder,
+                            isEdit = true
+                        )
                         viewModel.updateTask(taskId, parcelId, title, dueDate, taskType, priority, reminder, completed)
                         navController.popBackStack()
                     },
@@ -360,6 +442,12 @@ fun TorresAgroApp(repository: AgroRepository) {
                     parcels = state.parcels,
                     preselectedParcelId = parcelId,
                     onSave = { selectedParcelId, activityType, date, cost, quantity, notes, photoUri ->
+                        AnalyticsTracker.logActivitySaved(
+                            context = context,
+                            activityType = activityType.name,
+                            hasPhoto = !photoUri.isNullOrBlank(),
+                            isEdit = false
+                        )
                         viewModel.addActivity(selectedParcelId, activityType, date, cost, quantity, notes, photoUri)
                         navController.popBackStack()
                     },
@@ -373,6 +461,12 @@ fun TorresAgroApp(repository: AgroRepository) {
                     parcels = state.parcels,
                     initialActivity = activity,
                     onSave = { parcelId, type, date, cost, quantity, notes, photo ->
+                        AnalyticsTracker.logActivitySaved(
+                            context = context,
+                            activityType = type.name,
+                            hasPhoto = !photo.isNullOrBlank(),
+                            isEdit = true
+                        )
                         viewModel.updateActivity(activityId, parcelId, type, date, cost, quantity, notes, photo)
                         navController.popBackStack()
                     },
@@ -392,6 +486,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     parcels = state.parcels,
                     preselectedParcelId = parcelId,
                     onSave = { selParcelId, date, stage, status, symptoms, recommendation, photo ->
+                        AnalyticsTracker.logObservationSaved(
+                            context = context,
+                            status = status,
+                            symptomCount = symptoms.size,
+                            hasPhoto = !photo.isNullOrBlank(),
+                            isEdit = false
+                        )
                         viewModel.addObservation(selParcelId, date, stage, status, symptoms, recommendation, photo)
                         navController.popBackStack()
                     },
@@ -405,6 +506,13 @@ fun TorresAgroApp(repository: AgroRepository) {
                     parcels = state.parcels,
                     initialObservation = obs,
                     onSave = { parcelId, date, stage, status, symptoms, rec, photo ->
+                        AnalyticsTracker.logObservationSaved(
+                            context = context,
+                            status = status,
+                            symptomCount = symptoms.size,
+                            hasPhoto = !photo.isNullOrBlank(),
+                            isEdit = true
+                        )
                         viewModel.updateObservation(observationId, parcelId, date, stage, status, symptoms, rec, photo)
                         navController.popBackStack()
                     },
@@ -421,7 +529,20 @@ fun TorresAgroApp(repository: AgroRepository) {
                     onParcelClick = { parcelId ->
                         navController.navigate("${AppDestination.ParcelDetail.route}/$parcelId")
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onScreenViewed = { alertCount, recommendationCount ->
+                        AnalyticsTracker.logAlertsCenterSummary(
+                            context = context,
+                            alertCount = alertCount,
+                            recommendationCount = recommendationCount
+                        )
+                    },
+                    onAlertOpen = { severity ->
+                        AnalyticsTracker.logAlertOpen(context, severity.name)
+                    },
+                    onRecommendationOpen = { recommendationType ->
+                        AnalyticsTracker.logRecommendationOpen(context, recommendationType.name)
+                    }
                 )
             }
             }

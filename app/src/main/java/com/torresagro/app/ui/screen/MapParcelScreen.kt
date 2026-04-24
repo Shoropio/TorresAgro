@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.torresagro.app.R
+import com.torresagro.app.data.firebase.AnalyticsTracker
 import androidx.compose.ui.viewinterop.AndroidView
 import com.torresagro.app.ui.map.EsriWorldImageryTileSource
 import com.torresagro.app.ui.util.AreaCalculator
@@ -61,31 +62,44 @@ fun ParcelMapScreen(
     ) { permissions ->
         if (permissions.values.any { it }) {
             if (!isLocationEnabled(context)) {
+                AnalyticsTracker.logMapLocationRequest(context, "permission_result", "location_disabled", points.size)
                 Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
             } else {
                 scope.launch {
-                    captureCurrentLocation(context)?.let { coords ->
+                    val coords = captureCurrentLocation(context)
+                    if (coords != null) {
                         currentCenter = GeoPoint(coords.first, coords.second)
                         locationCenterRequest += 1
-                    } ?: Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
+                        AnalyticsTracker.logMapLocationRequest(context, "permission_result", "success", points.size)
+                    } else {
+                        AnalyticsTracker.logMapLocationRequest(context, "permission_result", "not_found", points.size)
+                        Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         } else {
+            AnalyticsTracker.logMapLocationRequest(context, "permission_result", "permission_denied", points.size)
             Toast.makeText(context, R.string.location_permission_denied_message, Toast.LENGTH_LONG).show()
         }
     }
 
     fun centerMapOnCurrentLocation() {
         if (!isLocationEnabled(context)) {
+            AnalyticsTracker.logMapLocationRequest(context, "fab", "location_disabled", points.size)
             Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
             return
         }
 
         scope.launch {
-            captureCurrentLocation(context)?.let { coords ->
+            val coords = captureCurrentLocation(context)
+            if (coords != null) {
                 currentCenter = GeoPoint(coords.first, coords.second)
                 locationCenterRequest += 1
-            } ?: Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
+                AnalyticsTracker.logMapLocationRequest(context, "fab", "success", points.size)
+            } else {
+                AnalyticsTracker.logMapLocationRequest(context, "fab", "not_found", points.size)
+                Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -100,8 +114,10 @@ fun ParcelMapScreen(
 
     LaunchedEffect(Unit) {
         if (isLocationEnabled(context)) {
+            AnalyticsTracker.logMapLocationRequest(context, "screen_open", "requesting_permission", points.size)
             requestCurrentLocation()
         } else {
+            AnalyticsTracker.logMapLocationRequest(context, "screen_open", "location_disabled", points.size)
             Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
         }
     }

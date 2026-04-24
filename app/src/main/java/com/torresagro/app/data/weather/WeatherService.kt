@@ -1,5 +1,6 @@
 package com.torresagro.app.data.weather
 
+import android.util.Log
 import com.torresagro.app.R
 import com.torresagro.app.BuildConfig
 import com.torresagro.app.domain.model.DailyForecast
@@ -14,6 +15,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 class WeatherService {
+    companion object {
+        private const val TAG = "WeatherService"
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     
     // API Keys
@@ -33,13 +38,18 @@ class WeatherService {
             coords.latitude to coords.longitude
         }
 
+        Log.d(TAG, "Consultando clima para '$locationName' en $finalLat,$finalLon")
+
         // Intentar con Open-Meteo (Primario, sin API Key)
         try {
             val basicWeather = fetchFromOpenMeteo(finalLat, finalLon, locationName)
+            Log.d(TAG, "Clima obtenido desde Open-Meteo para '$locationName'")
             return@withContext enrichWithAgriData(basicWeather, finalLat, finalLon)
         } catch (e: Exception) {
+            Log.w(TAG, "Open-Meteo fallo para '$locationName': ${e.message}", e)
             // Respaldo con OpenWeatherMap si hay API Key
             if (openWeatherApiKey.isNotEmpty()) {
+                Log.d(TAG, "Intentando respaldo con OpenWeatherMap para '$locationName'")
                 return@withContext fetchFromOpenWeatherMap(finalLat, finalLon, locationName)
             }
             throw e
@@ -61,13 +71,18 @@ class WeatherService {
                 tempMax = response.daily.tempMax[i],
                 tempMin = response.daily.tempMin[i],
                 rainMm = response.daily.rainSum[i],
+                condition = weatherCodeToLabel(response.daily.weatherCode[i]),
                 conditionResId = weatherCodeToResId(response.daily.weatherCode[i])
             )
         }
 
+        val currentStatusResId = weatherCodeToResId(response.current.weatherCode)
+        val currentStatus = weatherCodeToLabel(response.current.weatherCode)
+
         return WeatherSnapshot(
             locationLabel = if (locationName.isBlank()) "Coord: ${"%.4f".format(lat)}, ${"%.4f".format(lon)}" else locationName,
-            statusResId = describeRainResId(response.current.rain),
+            status = currentStatus,
+            statusResId = currentStatusResId,
             rainfallMm = response.current.rain.toInt(),
             temperatureC = response.current.temperature.toInt(),
             humidityPercent = response.current.humidity,
@@ -117,7 +132,7 @@ class WeatherService {
         return WeatherSnapshot(
             locationLabel = locationName.ifBlank { response.name },
             status = response.weather.firstOrNull()?.description?.replaceFirstChar { it.uppercase() } ?: "",
-            statusResId = if (response.weather.isEmpty()) R.string.weather_clear else null,
+            statusResId = response.weather.firstOrNull()?.id?.let { openWeatherCodeToResId(it) } ?: R.string.weather_clear,
             rainfallMm = (response.rain?.h1 ?: 0.0).toInt(),
             temperatureC = response.main.temp.toInt(),
             humidityPercent = response.main.humidity,
@@ -162,14 +177,6 @@ class WeatherService {
         return body
     }
 
-    private fun describeRainResId(rain: Double): Int {
-        return when {
-            rain <= 0.0 -> R.string.weather_clear
-            rain < 10.0 -> R.string.weather_rain
-            else -> R.string.weather_rain 
-        }
-    }
-
     private fun weatherCodeToResId(code: Int): Int {
         return when (code) {
             0 -> R.string.weather_clear
@@ -180,6 +187,33 @@ class WeatherService {
             71, 73, 75 -> R.string.weather_snow
             80, 81, 82 -> R.string.weather_showers
             95, 96, 99 -> R.string.weather_thunderstorm
+            else -> R.string.weather_varied
+        }
+    }
+
+    private fun weatherCodeToLabel(code: Int): String {
+        return when (weatherCodeToResId(code)) {
+            R.string.weather_clear -> "Despejado"
+            R.string.weather_partly_cloudy -> "Parcialmente nublado"
+            R.string.weather_fog -> "Niebla"
+            R.string.weather_drizzle -> "Llovizna"
+            R.string.weather_rain -> "Lluvia"
+            R.string.weather_snow -> "Nieve"
+            R.string.weather_showers -> "Chubascos"
+            R.string.weather_thunderstorm -> "Tormenta"
+            else -> "Variado"
+        }
+    }
+
+    private fun openWeatherCodeToResId(code: Int): Int {
+        return when (code) {
+            in 200..232 -> R.string.weather_thunderstorm
+            in 300..321 -> R.string.weather_drizzle
+            in 500..531 -> R.string.weather_rain
+            in 600..622 -> R.string.weather_snow
+            in 701..781 -> R.string.weather_fog
+            800 -> R.string.weather_clear
+            in 801..804 -> R.string.weather_partly_cloudy
             else -> R.string.weather_varied
         }
     }
@@ -202,7 +236,8 @@ private data class OpenMeteoCurrent(
     @SerialName("temperature_2m") val temperature: Double,
     @SerialName("relative_humidity_2m") val humidity: Int,
     @SerialName("wind_speed_10m") val windSpeed: Double,
-    val rain: Double
+    val rain: Double,
+    @SerialName("weather_code") val weatherCode: Int
 )
 
 @Serializable
@@ -242,6 +277,7 @@ private data class OWMMain(
 
 @Serializable
 private data class OWMWeather(
+    val id: Int,
     val description: String
 )
 

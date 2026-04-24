@@ -1,6 +1,7 @@
 package com.torresagro.app.ui.screen
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -36,8 +38,16 @@ import com.torresagro.app.ui.theme.AccentGold
 import com.torresagro.app.ui.theme.AccentSky
 
 @Composable
-fun SmartAgroScreen(state: AppUiState) {
+fun SmartAgroScreen(
+    state: AppUiState,
+    onSuggestionOpen: (SmartSuggestion) -> Unit = {},
+    onTechnicalSheetOpen: (String) -> Unit = {},
+    onScreenViewed: (Int, Int, Int) -> Unit = { _, _, _ -> }
+) {
     val suggestions = state.smartAnalyses.flatMap { it.suggestions }
+    LaunchedEffect(state.smartAnalyses.size, state.technicalLibrary.size, suggestions.size) {
+        onScreenViewed(suggestions.size, state.technicalLibrary.size, state.smartAnalyses.size)
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -97,7 +107,10 @@ fun SmartAgroScreen(state: AppUiState) {
                             MiniMetric("Labores", analysis.completedActivities.toString())
                         }
                         analysis.suggestions.take(3).forEach { suggestion ->
-                            SuggestionCard(suggestion)
+                            SuggestionCard(
+                                suggestion = suggestion,
+                                onOpen = { onSuggestionOpen(suggestion) }
+                            )
                         }
                     }
                 }
@@ -113,7 +126,9 @@ fun SmartAgroScreen(state: AppUiState) {
 
         items(state.technicalLibrary, key = { it.cropType.name }) { sheet ->
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTechnicalSheetOpen(sheet.cropType.name) },
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
@@ -143,14 +158,19 @@ private fun MiniMetric(label: String, value: String) {
 }
 
 @Composable
-private fun SuggestionCard(suggestion: SmartSuggestion) {
+private fun SuggestionCard(
+    suggestion: SmartSuggestion,
+    onOpen: () -> Unit
+) {
     val color = when (suggestion.source) {
         SmartSuggestionSource.TechnicalRule -> AccentSky
         SmartSuggestionSource.HistoricalLearning -> Color(0xFF2E7D32)
         SmartSuggestionSource.SimilarParcelPattern -> AccentGold
     }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
         border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
