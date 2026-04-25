@@ -46,7 +46,9 @@ import com.torresagro.app.ui.util.CostaRicaMeasureUnits
 import com.torresagro.app.ui.util.createTempImageUri
 import com.torresagro.app.ui.util.captureCurrentLocation
 import com.torresagro.app.ui.util.formatCurrencyCrc
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Locale
 
 @Composable
@@ -149,6 +151,7 @@ private fun FormStatRow(items: List<Pair<String, String>>) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewParcelScreen(
     initialParcel: Parcel? = null,
@@ -165,7 +168,8 @@ fun NewParcelScreen(
     var locationName by remember { mutableStateOf(initialParcel?.locationName.orEmpty()) }
     var sizeText by remember { mutableStateOf(initialParcel?.sizeHectares?.toString().orEmpty()) }
     var variety by remember { mutableStateOf(initialParcel?.variety.orEmpty()) }
-    var sowingDate by remember { mutableStateOf(initialParcel?.sowingDate ?: "2026-04-17") }
+    var sowingDate by remember { mutableStateOf(initialParcel?.sowingDate ?: LocalDate.now().toString()) }
+    var showSowingDatePicker by remember { mutableStateOf(false) }
     var cropType by remember { mutableStateOf(initialParcel?.cropType ?: CropType.Cassava) }
     var latitude by remember { mutableStateOf(initialParcel?.latitude) }
     var longitude by remember { mutableStateOf(initialParcel?.longitude) }
@@ -204,6 +208,34 @@ fun NewParcelScreen(
                     longitude = coords.second
                 }
             }
+        }
+    }
+
+    if (showSowingDatePicker) {
+        val sowingDatePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = localDateStringToStartOfDayMillis(sowingDate)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showSowingDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        sowingDatePickerState.selectedDateMillis?.let {
+                            sowingDate = startOfDayMillisToLocalDateString(it)
+                        }
+                        showSowingDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSowingDatePicker = false }) {
+                    Text(stringResource(R.string.cancel_btn))
+                }
+            }
+        ) {
+            DatePicker(state = sowingDatePickerState)
         }
     }
 
@@ -310,6 +342,11 @@ fun NewParcelScreen(
                     singleLine = true,
                     isError = sowingDateError != null,
                     supportingText = sowingDateError?.let { { Text(it) } },
+                    trailingIcon = {
+                        IconButton(onClick = { showSowingDatePicker = true }) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = "Abrir calendario")
+                        }
+                    },
                     shape = RoundedCornerShape(8.dp)
                 )
             }
@@ -399,6 +436,21 @@ fun NewParcelScreen(
             }
         }
     }
+}
+
+private fun localDateStringToStartOfDayMillis(date: String): Long {
+    val localDate = runCatching { LocalDate.parse(date) }.getOrDefault(LocalDate.now())
+    return localDate
+        .atStartOfDay(ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
+}
+
+private fun startOfDayMillisToLocalDateString(millis: Long): String {
+    return Instant.ofEpochMilli(millis)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .toString()
 }
 
 private fun String.normalizedDecimalOrNull(): Double? {
