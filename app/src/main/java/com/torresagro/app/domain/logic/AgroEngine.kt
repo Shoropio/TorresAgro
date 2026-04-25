@@ -1,114 +1,142 @@
 package com.torresagro.app.domain.logic
 
-import com.torresagro.app.domain.model.*
+import com.torresagro.app.domain.model.AgriData
+import com.torresagro.app.domain.model.AgroAlert
+import com.torresagro.app.domain.model.AlertSeverity
+import com.torresagro.app.domain.model.AlertType
+import com.torresagro.app.domain.model.Recommendation
+import com.torresagro.app.domain.model.RecommendationType
+import com.torresagro.app.domain.model.WeatherSnapshot
 
-/**
- * Motor de reglas e indicadores para agricultura avanzada.
- * Implementa cálculos de riesgo y recomendaciones basadas en datos climáticos y satelitales.
- */
 object AgroEngine {
-    
-    /**
-     * Calcula alertas basadas en umbrales de riesgo.
-     */
     fun calculateAlerts(weather: WeatherSnapshot, agri: AgriData?): List<AgroAlert> {
         val alerts = mutableListOf<AgroAlert>()
-        
-        // 1. Riesgo por lluvia intensa (Umbral: > 30mm en pronóstico o actual)
+        val rainNext3Days = weather.forecast16Days.take(3).sumOf { it.rainMm }
+
         if (weather.rainfallMm > 30) {
-            alerts.add(AgroAlert(
-                id = "rain_${System.currentTimeMillis()}",
-                type = AlertType.Rain,
-                message = "Alerta de Lluvia Intensa: ${weather.rainfallMm}mm. Riesgo de erosión o inundación.",
-                severity = AlertSeverity.High,
-                timestamp = System.currentTimeMillis()
-            ))
-        }
-
-        // 2. Estrés térmico (Umbral: > 34°C)
-        if (weather.temperatureC > 34) {
-            alerts.add(AgroAlert(
-                id = "heat_${System.currentTimeMillis()}",
-                type = AlertType.HeatStress,
-                message = "Estrés Térmico: ${weather.temperatureC}°C. El cultivo podría cerrar estomas.",
-                severity = AlertSeverity.Medium,
-                timestamp = System.currentTimeMillis()
-            ))
-        }
-
-        // 3. Alta evapotranspiración (ET0 > 6.0 mm/día)
-        weather.evapotranspiration?.let { et0 ->
-            if (et0 > 6.0) {
-                alerts.add(AgroAlert(
-                    id = "et0_${System.currentTimeMillis()}",
-                    type = AlertType.HeatStress,
-                    message = "Alta Evapotranspiración ($et0 mm/día). Pérdida de humedad acelerada.",
-                    severity = AlertSeverity.Medium,
-                    timestamp = System.currentTimeMillis()
-                ))
-            }
-        }
-
-        // 4. Temperatura del suelo alta (> 30°C)
-        weather.soilTemperature?.let { st ->
-            if (st > 30.0) {
-                alerts.add(AgroAlert(
-                    id = "soil_temp_${System.currentTimeMillis()}",
-                    type = AlertType.HeatStress,
-                    message = "Temperatura de Suelo Alta ($st°C). Impacto en sistema radicular.",
-                    severity = AlertSeverity.Low,
-                    timestamp = System.currentTimeMillis()
-                ))
-            }
-        }
-
-        // 5. Salud del cultivo (NDVI bajo)
-        agri?.let {
-            if (it.ndvi < 0.4) {
-                alerts.add(AgroAlert(
-                    id = "ndvi_${System.currentTimeMillis()}",
-                    type = AlertType.Pests,
-                    message = "Vigor Vegetativo Bajo (NDVI: ${"%.2f".format(it.ndvi)}). Revisar posible presencia de plagas.",
+            alerts.add(
+                AgroAlert(
+                    id = "rain_${System.currentTimeMillis()}",
+                    type = AlertType.Rain,
+                    message = "Alerta de lluvia intensa: ${weather.rainfallMm}mm. En Costa Rica revisa drenajes, escorrentia y accesos al lote.",
                     severity = AlertSeverity.High,
                     timestamp = System.currentTimeMillis()
-                ))
+                )
+            )
+        }
+
+        if (rainNext3Days >= 60) {
+            alerts.add(
+                AgroAlert(
+                    id = "rain_forecast_${System.currentTimeMillis()}",
+                    type = AlertType.Rain,
+                    message = "Lluvia acumulada probable (${rainNext3Days.toInt()}mm en 3 dias). Programar drenaje, evitar aplicaciones lavables y proteger cosecha.",
+                    severity = AlertSeverity.High,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+
+        if (weather.temperatureC > 34) {
+            alerts.add(
+                AgroAlert(
+                    id = "heat_${System.currentTimeMillis()}",
+                    type = AlertType.HeatStress,
+                    message = "Estres termico: ${weather.temperatureC}C. Revisar humedad del suelo, cobertura y labores en horas frescas.",
+                    severity = AlertSeverity.Medium,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+
+        weather.evapotranspiration?.let { et0 ->
+            if (et0 > 6.0) {
+                alerts.add(
+                    AgroAlert(
+                        id = "et0_${System.currentTimeMillis()}",
+                        type = AlertType.HeatStress,
+                        message = "Alta evapotranspiracion ($et0 mm/dia). Perdida de humedad acelerada; revisar riego o cobertura.",
+                        severity = AlertSeverity.Medium,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+
+        weather.soilTemperature?.let { soilTemp ->
+            if (soilTemp > 30.0) {
+                alerts.add(
+                    AgroAlert(
+                        id = "soil_temp_${System.currentTimeMillis()}",
+                        type = AlertType.HeatStress,
+                        message = "Temperatura de suelo alta ($soilTemp C). Revisar cobertura y humedad cerca de la raiz.",
+                        severity = AlertSeverity.Low,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+
+        agri?.let {
+            if (it.ndvi < 0.4) {
+                alerts.add(
+                    AgroAlert(
+                        id = "ndvi_${System.currentTimeMillis()}",
+                        type = AlertType.Pests,
+                        message = "Vigor vegetativo bajo (NDVI: ${"%.2f".format(it.ndvi)}). Revisar nutricion, malezas, drenaje y posibles plagas.",
+                        severity = AlertSeverity.High,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
             }
         }
 
         return alerts
     }
 
-    /**
-     * Motor de recomendaciones basado en reglas agrícolas.
-     */
     fun getRecommendations(weather: WeatherSnapshot, agri: AgriData?): List<Recommendation> {
         val recs = mutableListOf<Recommendation>()
-        
-        // Sugerencia de Riego
+        val rainNext3Days = weather.forecast16Days.take(3).sumOf { it.rainMm }
+        val rainNext5Days = weather.forecast16Days.take(5).sumOf { it.rainMm }
+
         if (agri != null && agri.soilMoisture < 20 && weather.rainfallMm < 5) {
-            recs.add(Recommendation(
-                title = "Programar Riego",
-                description = "La humedad del suelo es crítica (${"%.1f".format(agri.soilMoisture)}%) y no se esperan lluvias significativas.",
-                type = RecommendationType.Irrigation
-            ))
+            recs.add(
+                Recommendation(
+                    title = "Programar riego o conservacion de humedad",
+                    description = "La humedad del suelo es baja (${"%.1f".format(agri.soilMoisture)}%) y no hay lluvia suficiente. Revisar suelo antes de regar.",
+                    type = RecommendationType.Irrigation
+                )
+            )
         }
 
-        // Recomendación de Siembra
-        if (weather.temperatureC in 20..28 && weather.rainfallMm in 2..15) {
-            recs.add(Recommendation(
-                title = "Ventana de Siembra",
-                description = "Condiciones de temperatura y humedad óptimas para la germinación y establecimiento.",
-                type = RecommendationType.Sowing
-            ))
+        if (weather.temperatureC in 20..30 && rainNext5Days in 10.0..80.0) {
+            recs.add(
+                Recommendation(
+                    title = "Ventana de siembra",
+                    description = "Temperatura y lluvia previstas son manejables para establecimiento. Confirmar drenaje y acceso al lote.",
+                    type = RecommendationType.Sowing
+                )
+            )
         }
 
-        // Control de Plagas Preventive
         if (weather.humidityPercent > 85 && weather.temperatureC > 25) {
-            recs.add(Recommendation(
-                title = "Monitoreo de Hongos",
-                description = "Alta humedad y calor favorecen la proliferación de patógenos fúngicos.",
-                type = RecommendationType.PestControl
-            ))
+            recs.add(
+                Recommendation(
+                    title = "Monitoreo preventivo de hongos",
+                    description = "Alta humedad y calor favorecen enfermedades fungosas. Registrar foto de hojas/frutos y crear tarea de seguimiento.",
+                    type = RecommendationType.PestControl
+                )
+            )
+        }
+
+        if (rainNext3Days >= 35) {
+            recs.add(
+                Recommendation(
+                    title = "Evitar aplicaciones antes de lluvia",
+                    description = "Hay lluvia cercana en el pronostico. Reprogramar fertilizacion o fumigacion lavable y revisar zanjas.",
+                    type = RecommendationType.Fertilization
+                )
+            )
         }
 
         return recs

@@ -1,7 +1,7 @@
 package com.torresagro.app.domain.model
 
 object SmartCropCatalog {
-    private val commonSource = "FAO: semillas vegetativas y manejo de raices/tuberculos; MAG Costa Rica: guias tecnicas, ciclos de cultivo y sanidad vegetal."
+    private val commonSource = CostaRicaAgroGuide.sourceSummary
 
     val profiles: List<CropProfile> = listOf(
         rootCrop(CropType.Cassava, 300, listOf("Valencia", "Se\u00f1orita"), "estacas sanas"),
@@ -63,6 +63,7 @@ object SmartCropCatalog {
             criticalFactors = listOf("Drenaje", "sanidad de semilla", "humedad estable", "manejo poscosecha"),
             suggestedPractices = criticalTasks.map { it.title },
             fieldNotes = listOf("Registrar procedencia del material vegetativo.", "Comparar vigor entre parcelas del mismo cultivo.")
+                + CostaRicaAgroGuide.checklistFor(cropType).take(2)
         )
         return CropProfile(
             cropType = cropType,
@@ -101,6 +102,7 @@ object SmartCropCatalog {
             criticalFactors = listOf("Humedad en floracion", "fertilidad", "control temprano de malezas", "plagas de cogollo"),
             suggestedPractices = tasks.map { it.title },
             fieldNotes = listOf("Registrar densidad real de plantas.", "Comparar rendimiento por fecha de siembra.")
+                + CostaRicaAgroGuide.checklistFor(CropType.Corn).take(2)
         )
         return CropProfile(CropType.Corn, listOf(CropVariety("Amarillo", 105, "Ciclo medio.")), stages, listOf(CropRiskProfile("Estres en floracion", listOf("calor", "baja humedad"), "Priorizar riego o conservacion de humedad.")), tasks, baseRules(CropType.Corn), sheet)
     }
@@ -141,6 +143,7 @@ object SmartCropCatalog {
             criticalFactors = listOf("Humedad", "polinizacion", "enfermedades foliares", "calidad de cosecha"),
             suggestedPractices = tasks.map { it.title },
             fieldNotes = listOf("Registrar incidencia por cama.", "Comparar rendimiento por ventana de siembra.")
+                + CostaRicaAgroGuide.checklistFor(cropType).take(2)
         )
         return CropProfile(cropType, varieties.map { CropVariety(it, cycleDays, "Ciclo ajustable por clima.") }, stages, listOf(CropRiskProfile("Hongos foliares", listOf("humedad alta", "calor"), "Muestrear hojas y frutos.")), tasks, rules, sheet)
     }
@@ -167,6 +170,7 @@ object SmartCropCatalog {
             criticalFactors = listOf("Drenaje", "viento", "nutricion", "sanidad foliar"),
             suggestedPractices = tasks.map { it.title },
             fieldNotes = listOf("Registrar deshije y numero de hojas funcionales.", "Comparar racimos por lote y fecha.")
+                + CostaRicaAgroGuide.checklistFor(CropType.Plantain).take(2)
         )
         return CropProfile(CropType.Plantain, listOf(CropVariety("Curare", 365, "Ciclo anual segun manejo.")), stages, listOf(CropRiskProfile("Sanidad foliar", listOf("humedad alta"), "Revisar hojas jovenes y drenaje.")), tasks, baseRules(CropType.Plantain), sheet)
     }
@@ -200,6 +204,15 @@ object SmartCropCatalog {
             source = "Regla operativa parametrizable",
             requiredActivityGapDays = 21,
             activityType = ActivityType.Labor
+        ),
+        AgronomicRule(
+            id = "${cropType.name}_cr_drainage_check",
+            cropType = cropType,
+            title = "Revisar drenajes por lluvia tropical",
+            recommendation = "En Costa Rica, lluvias acumuladas pueden saturar rapido el suelo; abrir salidas de agua y revisar caminos antes de entrar con equipo.",
+            priority = "Alta",
+            source = "MAG Costa Rica / manejo operativo tropico humedo",
+            minRainMm = 25
         )
     )
 }
