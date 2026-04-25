@@ -31,7 +31,11 @@ import com.torresagro.app.ui.viewmodel.AppViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TorresAgroApp(repository: AgroRepository) {
+fun TorresAgroApp(
+    repository: AgroRepository,
+    notificationRoute: String? = null,
+    onNotificationRouteConsumed: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val factory = AppViewModelFactory(repository)
     val viewModel: AppViewModel = viewModel(factory = factory)
@@ -55,6 +59,19 @@ fun TorresAgroApp(repository: AgroRepository) {
 
     LaunchedEffect(currentRoute) {
         currentRoute?.let { AnalyticsTracker.logScreenView(context, it) }
+    }
+
+    LaunchedEffect(notificationRoute, currentRoute) {
+        val route = notificationRoute ?: return@LaunchedEffect
+        if (currentRoute != null &&
+            currentRoute != AppDestination.Splash.route &&
+            currentRoute != AppDestination.Login.route
+        ) {
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+            onNotificationRouteConsumed()
+        }
     }
 
     Scaffold(
@@ -128,8 +145,11 @@ fun TorresAgroApp(repository: AgroRepository) {
                     val userId = authManager.currentUid()
                     if (userId != null) {
                         viewModel.sync()
-                        navController.navigate(AppDestination.Home.route) {
+                        navController.navigate(notificationRoute ?: AppDestination.Home.route) {
                             popUpTo(AppDestination.Splash.route) { inclusive = true }
+                        }
+                        if (notificationRoute != null) {
+                            onNotificationRouteConsumed()
                         }
                     } else {
                         navController.navigate(AppDestination.Login.route) {
