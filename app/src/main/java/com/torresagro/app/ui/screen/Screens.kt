@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.platform.*
@@ -238,6 +239,7 @@ fun HomeScreen(
                     }
 
                     state.currentLocationWeather?.let { weather ->
+                        var showForecast16Days by rememberSaveable { mutableStateOf(false) }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -285,15 +287,32 @@ fun HomeScreen(
                         }
                         if (weather.forecast16Days.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                contentPadding = PaddingValues(top = 2.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                items(
-                                    items = weather.forecast16Days.take(8),
-                                    key = { it.date }
-                                ) { forecast ->
-                                    CompactForecastChip(forecast)
+                                Text(
+                                    text = "Pronostico de 16 dias",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                TextButton(onClick = { showForecast16Days = !showForecast16Days }) {
+                                    Text(if (showForecast16Days) "Ocultar" else "Mostrar")
+                                }
+                            }
+                            if (showForecast16Days) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    contentPadding = PaddingValues(top = 2.dp)
+                                ) {
+                                    items(
+                                        items = weather.forecast16Days.take(16),
+                                        key = { it.date }
+                                    ) { forecast ->
+                                        CompactForecastChip(forecast)
+                                    }
                                 }
                             }
                         }
