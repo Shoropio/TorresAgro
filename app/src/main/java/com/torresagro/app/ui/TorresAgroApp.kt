@@ -276,6 +276,7 @@ fun TorresAgroApp(
                     activities = state.activities.filter { it.parcelId == parcelId },
                     observations = state.observations.filter { it.parcelId == parcelId },
                     agriData = state.parcelAgriData[parcelId],
+                    onAddTask = { navController.navigate("${AppDestination.NewTask.route}?parcelId=$parcelId") },
                     onAddActivity = { navController.navigate("${AppDestination.NewActivity.route}?parcelId=$parcelId") },
                     onEditParcel = { navController.navigate("${AppDestination.EditParcel.route}/$parcelId") },
                     onEditActivity = { activityId ->
@@ -412,10 +413,15 @@ fun TorresAgroApp(
                 )
             }
             // Add other forms as needed...
-            composable(AppDestination.NewTask.route) {
+            composable(
+                route = "${AppDestination.NewTask.route}?parcelId={parcelId}",
+                arguments = listOf(navArgument("parcelId") { defaultValue = "" })
+            ) { backStackEntry ->
+                val parcelId = backStackEntry.arguments?.getString("parcelId") ?: ""
                 TaskFormScreen(
                     parcels = state.parcels,
-                    onSave = { parcelId, title, dueDate, taskType, priority, reminderEnabled, _ ->
+                    preselectedParcelId = parcelId,
+                    onSave = { selectedParcelId, title, dueDate, taskType, priority, reminderEnabled, _ ->
                         AnalyticsTracker.logTaskSaved(
                             context = context,
                             taskType = taskType.name,
@@ -423,7 +429,7 @@ fun TorresAgroApp(
                             reminderEnabled = reminderEnabled,
                             isEdit = false
                         )
-                        viewModel.addTask(parcelId, title, dueDate, taskType, priority, reminderEnabled)
+                        viewModel.addTask(selectedParcelId, title, dueDate, taskType, priority, reminderEnabled)
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }
@@ -548,6 +554,12 @@ fun TorresAgroApp(
                     uiState = state,
                     onParcelClick = { parcelId ->
                         navController.navigate("${AppDestination.ParcelDetail.route}/$parcelId")
+                    },
+                    onCreateTask = { parcelId ->
+                        navController.navigate("${AppDestination.NewTask.route}?parcelId=$parcelId")
+                    },
+                    onCreateObservation = { parcelId ->
+                        navController.navigate("${AppDestination.NewObservation.route}?parcelId=$parcelId")
                     },
                     onBack = { navController.popBackStack() },
                     onScreenViewed = { alertCount, recommendationCount ->

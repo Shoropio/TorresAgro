@@ -746,12 +746,19 @@ fun OptionPicker(
 fun TaskFormScreen(
     parcels: List<Parcel>,
     initialTask: CropTask? = null,
+    preselectedParcelId: String? = null,
     onSave: (String, String, String, TaskType, String, Boolean, Boolean) -> Unit,
     onBack: () -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    var parcelId by remember { mutableStateOf(initialTask?.parcelId ?: parcels.firstOrNull()?.id.orEmpty()) }
+    var parcelId by remember {
+        mutableStateOf(
+            initialTask?.parcelId ?: preselectedParcelId?.takeIf { requested ->
+                parcels.any { it.id == requested }
+            } ?: parcels.firstOrNull()?.id.orEmpty()
+        )
+    }
     var title by remember { mutableStateOf(initialTask?.title.orEmpty()) }
     var dueDate by remember { mutableStateOf(initialTask?.dueDate ?: "2026-04-17") }
     var taskType by remember { mutableStateOf(initialTask?.taskType ?: TaskType.Monitoring) }

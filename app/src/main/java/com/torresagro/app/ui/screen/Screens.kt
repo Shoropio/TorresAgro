@@ -537,6 +537,7 @@ fun ParcelDetailScreen(
     agriData: com.torresagro.app.domain.model.AgriData?,
     activities: List<ActivityRecord>,
     observations: List<CropObservation>,
+    onAddTask: () -> Unit,
     onAddActivity: () -> Unit,
     onEditParcel: () -> Unit,
     onEditActivity: (String) -> Unit,
@@ -632,8 +633,33 @@ fun ParcelDetailScreen(
         }
 
         item {
+            CostaRicaFieldReadinessCard(parcel = parcel, weather = weather, agriData = agriData)
+        }
+
+        item {
+            ParcelWorkflowCard(
+                onAddTask = onAddTask,
+                onAddActivity = onAddActivity,
+                onAddObservation = onAddObservation
+            )
+        }
+
+        item {
             SectionTitle(stringResource(R.string.forecast_16_days))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (weather?.forecast16Days.isNullOrEmpty()) {
+                EmptyStateCard(
+                    title = "Pronostico pendiente",
+                    description = if (parcel.latitude == null || parcel.longitude == null) {
+                        "Captura GPS o ubica la parcela en el mapa para traer clima por coordenadas de Costa Rica."
+                    } else {
+                        "Toca actualizar datos para descargar el pronostico y los iconos del clima."
+                    },
+                    icon = Icons.Default.Refresh,
+                    actionLabel = stringResource(R.string.update),
+                    onAction = { onRefreshWeather(parcel.id) }
+                )
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(
                     items = weather?.forecast16Days ?: emptyList(),
                     key = { it.date }
@@ -661,6 +687,7 @@ fun ParcelDetailScreen(
                         }
                     }
                 }
+            }
             }
         }
 
@@ -1111,6 +1138,91 @@ fun ReportsScreen(state: AppUiState) {
 }
 
 @Composable
+private fun CostaRicaFieldReadinessCard(
+    parcel: Parcel,
+    weather: WeatherSnapshot?,
+    agriData: AgriData?
+) {
+    val readiness = listOf(
+        "GPS" to if (parcel.latitude != null && parcel.longitude != null) {
+            "Listo para clima por coordenadas"
+        } else {
+            "Falta capturar ubicacion"
+        },
+        "Clima" to if (!weather?.forecast16Days.isNullOrEmpty()) {
+            "Pronostico de 16 dias cargado"
+        } else {
+            "Actualizar para ver lluvia e iconos"
+        },
+        "Satelite" to if (agriData != null && agriData.ndvi > 0) {
+            "NDVI y humedad disponibles"
+        } else {
+            "Pendiente de lectura satelital"
+        }
+    )
+    val checklist = CostaRicaAgroGuide.checklistFor(parcel.cropType).take(3)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Preparacion de campo Costa Rica", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                CostaRicaAgroGuide.zoneHint(parcel.locationName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            readiness.forEach { (label, value) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(value, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                }
+            }
+            HorizontalDivider()
+            checklist.forEach { item ->
+                Text("- $item", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParcelWorkflowCard(
+    onAddTask: () -> Unit,
+    onAddActivity: () -> Unit,
+    onAddObservation: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Siguiente accion", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onAddTask, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
+                    Text("Tarea")
+                }
+                OutlinedButton(onClick = onAddActivity, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
+                    Text("Actividad")
+                }
+            }
+            OutlinedButton(onClick = onAddObservation, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+                Text("Monitoreo con foto")
+            }
+        }
+    }
+}
+
+@Composable
 fun WeatherDetailItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.End) {
         Text(
@@ -1366,6 +1478,8 @@ private fun formatWeatherUpdatedAt(updatedAtEpochMillis: Long, context: android.
 fun AlertsCenterScreen(
     uiState: AppUiState,
     onParcelClick: (String) -> Unit,
+    onCreateTask: (String) -> Unit = {},
+    onCreateObservation: (String) -> Unit = {},
     onBack: () -> Unit,
     onAlertOpen: (AlertSeverity) -> Unit = {},
     onRecommendationOpen: (RecommendationType) -> Unit = {},
@@ -1432,6 +1546,9 @@ fun AlertsCenterScreen(
                 }
             } else {
                 items(uiState.alerts) { alert ->
+                    val targetParcel = uiState.parcels.firstOrNull { parcel ->
+                        alert.message.contains(parcel.name, ignoreCase = true)
+                    } ?: uiState.parcels.firstOrNull()
                     val color = when (alert.severity) {
                         AlertSeverity.Critical -> Color(0xFFD32F2F)
                         AlertSeverity.High -> Color(0xFFF57C00)
@@ -1460,18 +1577,37 @@ fun AlertsCenterScreen(
                                 )
                             }
                             Text(alert.message, style = MaterialTheme.typography.bodyLarge)
-                            
-                            // Encontrar a qué parcela pertenece si es posible (basado en el mensaje por ahora o ID)
-                            // Para esta demo, permitimos ir a las parcelas que podrían tener el problema
-                            TextButton(
-                                onClick = { 
-                                    // Navegar a la primera parcela que coincida o una genérica
-                                    onAlertOpen(alert.severity)
-                                    uiState.parcels.firstOrNull()?.id?.let(onParcelClick)
-                                },
-                                modifier = Modifier.align(Alignment.End)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Text(stringResource(R.string.enter_panel))
+                                TextButton(
+                                    onClick = {
+                                        onAlertOpen(alert.severity)
+                                        targetParcel?.id?.let(onParcelClick)
+                                    },
+                                    enabled = targetParcel != null
+                                ) {
+                                    Text("Ver parcela")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        onAlertOpen(alert.severity)
+                                        targetParcel?.id?.let(onCreateObservation)
+                                    },
+                                    enabled = targetParcel != null
+                                ) {
+                                    Text("Monitorear")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        onAlertOpen(alert.severity)
+                                        targetParcel?.id?.let(onCreateTask)
+                                    },
+                                    enabled = targetParcel != null
+                                ) {
+                                    Text("Crear tarea")
+                                }
                             }
                         }
                     }
@@ -1483,6 +1619,7 @@ fun AlertsCenterScreen(
             }
 
             items(uiState.recommendations) { rec ->
+                val targetParcel = uiState.parcels.firstOrNull()
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1504,6 +1641,13 @@ fun AlertsCenterScreen(
                         Column {
                             Text(rec.title, fontWeight = FontWeight.Bold)
                             Text(rec.description, style = MaterialTheme.typography.bodySmall)
+                            TextButton(
+                                onClick = { targetParcel?.id?.let(onCreateTask) },
+                                enabled = targetParcel != null,
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text("Programar")
+                            }
                         }
                     }
                 }
