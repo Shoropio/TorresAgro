@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
@@ -153,6 +154,65 @@ private fun FormStatRow(items: List<Pair<String, String>>) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun DateInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    error: String? = null
+) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        label = { Text(label) },
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { showPicker = true },
+        singleLine = true,
+        readOnly = true,
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
+        trailingIcon = {
+            IconButton(onClick = { showPicker = true }) {
+                Icon(Icons.Default.CalendarToday, contentDescription = "Abrir calendario")
+            }
+        },
+        shape = RoundedCornerShape(8.dp)
+    )
+
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = localDateStringToStartOfDayMillis(value)
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let {
+                            onValueChange(startOfDayMillisToLocalDateString(it))
+                        }
+                        showPicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.cancel_btn))
+                }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun NewParcelScreen(
     initialParcel: Parcel? = null,
     calculatedArea: Double? = null,
@@ -169,7 +229,6 @@ fun NewParcelScreen(
     var sizeText by remember { mutableStateOf(initialParcel?.sizeHectares?.toString().orEmpty()) }
     var variety by remember { mutableStateOf(initialParcel?.variety.orEmpty()) }
     var sowingDate by remember { mutableStateOf(initialParcel?.sowingDate ?: LocalDate.now().toString()) }
-    var showSowingDatePicker by remember { mutableStateOf(false) }
     var cropType by remember { mutableStateOf(initialParcel?.cropType ?: CropType.Cassava) }
     var latitude by remember { mutableStateOf(initialParcel?.latitude) }
     var longitude by remember { mutableStateOf(initialParcel?.longitude) }
@@ -208,34 +267,6 @@ fun NewParcelScreen(
                     longitude = coords.second
                 }
             }
-        }
-    }
-
-    if (showSowingDatePicker) {
-        val sowingDatePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = localDateStringToStartOfDayMillis(sowingDate)
-        )
-        DatePickerDialog(
-            onDismissRequest = { showSowingDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        sowingDatePickerState.selectedDateMillis?.let {
-                            sowingDate = startOfDayMillisToLocalDateString(it)
-                        }
-                        showSowingDatePicker = false
-                    }
-                ) {
-                    Text("Aceptar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSowingDatePicker = false }) {
-                    Text(stringResource(R.string.cancel_btn))
-                }
-            }
-        ) {
-            DatePicker(state = sowingDatePickerState)
         }
     }
 
@@ -334,20 +365,11 @@ fun NewParcelScreen(
                     supportingText = varietyError?.let { { Text(it) } },
                     shape = RoundedCornerShape(8.dp)
                 )
-                OutlinedTextField(
+                DateInputField(
                     value = sowingDate,
                     onValueChange = { sowingDate = it },
-                    label = { Text(stringResource(R.string.field_sowing_date)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = sowingDateError != null,
-                    supportingText = sowingDateError?.let { { Text(it) } },
-                    trailingIcon = {
-                        IconButton(onClick = { showSowingDatePicker = true }) {
-                            Icon(Icons.Default.CalendarToday, contentDescription = "Abrir calendario")
-                        }
-                    },
-                    shape = RoundedCornerShape(8.dp)
+                    label = stringResource(R.string.field_sowing_date),
+                    error = sowingDateError
                 )
             }
         }
@@ -477,7 +499,7 @@ fun NewActivityScreen(
     val context = LocalContext.current
     var parcelId by remember { mutableStateOf(initialActivity?.parcelId ?: preselectedParcelId ?: parcels.firstOrNull()?.id.orEmpty()) }
     var activityType by remember { mutableStateOf(initialActivity?.activityType ?: ActivityType.Sowing) }
-    var date by remember { mutableStateOf(initialActivity?.date ?: "2026-04-17") }
+    var date by remember { mutableStateOf(initialActivity?.date ?: LocalDate.now().toString()) }
     var costText by remember { mutableStateOf(initialActivity?.cost?.toString().orEmpty()) }
     var quantity by remember { mutableStateOf(initialActivity?.quantity.orEmpty()) }
     var notes by remember { mutableStateOf(initialActivity?.notes.orEmpty()) }
@@ -567,15 +589,11 @@ fun NewActivityScreen(
                             activityType = ActivityType.entries.first { it.label == selected }
                         }
                     )
-                    OutlinedTextField(
+                    DateInputField(
                         value = date,
                         onValueChange = { date = it },
-                        label = { Text(stringResource(R.string.date_format_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = activityDateError != null,
-                        supportingText = activityDateError?.let { { Text(it) } },
-                        shape = RoundedCornerShape(8.dp)
+                        label = stringResource(R.string.date_format_label),
+                        error = activityDateError
                     )
                 }
             }
@@ -760,7 +778,7 @@ fun TaskFormScreen(
         )
     }
     var title by remember { mutableStateOf(initialTask?.title.orEmpty()) }
-    var dueDate by remember { mutableStateOf(initialTask?.dueDate ?: "2026-04-17") }
+    var dueDate by remember { mutableStateOf(initialTask?.dueDate ?: LocalDate.now().toString()) }
     var taskType by remember { mutableStateOf(initialTask?.taskType ?: TaskType.Monitoring) }
     var priority by remember { mutableStateOf(initialTask?.priority ?: context.getString(R.string.priority_medium)) }
     var reminderEnabled by remember { mutableStateOf(initialTask?.reminderEnabled ?: true) }
@@ -816,15 +834,11 @@ fun TaskFormScreen(
                         supportingText = titleError?.let { { Text(it) } },
                         shape = RoundedCornerShape(8.dp)
                     )
-                    OutlinedTextField(
+                    DateInputField(
                         value = dueDate,
                         onValueChange = { dueDate = it },
-                        label = { Text(stringResource(R.string.date_format_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = dueDateError != null,
-                        supportingText = dueDateError?.let { { Text(it) } },
-                        shape = RoundedCornerShape(8.dp)
+                        label = stringResource(R.string.date_format_label),
+                        error = dueDateError
                     )
                     OptionPicker(
                         title = stringResource(R.string.task_type_label),
@@ -905,7 +919,7 @@ fun ObservationFormScreen(
             ?: parcels.firstOrNull()?.id.orEmpty()
         )
     }
-    var date by remember { mutableStateOf(initialObservation?.date ?: "2026-04-17") }
+    var date by remember { mutableStateOf(initialObservation?.date ?: LocalDate.now().toString()) }
     var cropStage by remember {
         mutableStateOf(
             initialObservation?.cropStage ?: "Monitoreo general"
@@ -995,15 +1009,11 @@ fun ObservationFormScreen(
                         options = parcels.map { it.name },
                         onSelect = { selected -> parcelId = parcels.first { it.name == selected }.id }
                     )
-                    OutlinedTextField(
+                    DateInputField(
                         value = date,
                         onValueChange = { date = it },
-                        label = { Text(stringResource(R.string.date_format_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = observationDateError != null,
-                        supportingText = observationDateError?.let { { Text(it) } },
-                        shape = RoundedCornerShape(8.dp)
+                        label = stringResource(R.string.date_format_label),
+                        error = observationDateError
                     )
                     OutlinedTextField(
                         value = cropStage,
