@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,17 +26,23 @@ import com.torresagro.app.R
 import com.torresagro.app.data.firebase.AnalyticsTracker
 import androidx.compose.ui.viewinterop.AndroidView
 import com.torresagro.app.ui.map.EsriWorldImageryTileSource
+import com.torresagro.app.ui.map.ImageryLayerMode
+import com.torresagro.app.ui.map.ImageryMetadata
+import com.torresagro.app.ui.map.ImageryMetadataService
+import com.torresagro.app.ui.map.OpenAerialMapLayer
+import com.torresagro.app.ui.map.OpenAerialMapTileSource
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
 import com.torresagro.app.ui.util.isLocationEnabled
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polygon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +63,14 @@ fun ParcelMapScreen(
     var currentCenter by remember { mutableStateOf<GeoPoint?>(initialPoints.firstOrNull()?.let { GeoPoint(it.first, it.second) }) }
     var locationCenterRequest by remember { mutableIntStateOf(0) }
     var handledLocationCenterRequest by remember { mutableIntStateOf(0) }
+    var selectedLayerMode by remember { mutableStateOf(ImageryLayerMode.Automatic) }
+    var openAerialMapLayer by remember { mutableStateOf<OpenAerialMapLayer?>(null) }
+    var activeMetadata by remember { mutableStateOf<ImageryMetadata?>(null) }
+    var metadataLoading by remember { mutableStateOf(false) }
+    var cacheClearRequest by remember { mutableIntStateOf(0) }
+    var handledCacheClearRequest by remember { mutableIntStateOf(0) }
+    var metadataJob by remember { mutableStateOf<Job?>(null) }
+    var lastMetadataRequestKey by remember { mutableStateOf<String?>(null) }
     val area = remember(points) { AreaCalculator.calculateHectares(points.map { it.latitude to it.longitude }) }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -112,7 +127,36 @@ fun ParcelMapScreen(
         )
     }
 
+    fun metadataPoint(): GeoPoint = points.firstOrNull()
+        ?: currentCenter
+        ?: GeoPoint(10.35, -83.84)
+
+    fun loadMetadataFor(point: GeoPoint, mode: ImageryLayerMode = selectedLayerMode) {
+        val requestKey = "${mode.name}:${"%.4f".format(point.latitude)}:${"%.4f".format(point.longitude)}"
+        if (requestKey == lastMetadataRequestKey) return
+        lastMetadataRequestKey = requestKey
+        metadataJob?.cancel()
+        metadataJob = scope.launch {
+            metadataLoading = true
+            val oamLayer = if (mode != ImageryLayerMode.EsriWorldImagery) {
+                ImageryMetadataService.findOpenAerialMapLayer(point.latitude, point.longitude)
+            } else {
+                null
+            }
+            openAerialMapLayer = oamLayer
+            activeMetadata = when (mode) {
+                ImageryLayerMode.OpenAerialMap -> oamLayer?.metadata
+                ImageryLayerMode.Automatic -> oamLayer?.metadata
+                    ?: ImageryMetadataService.findEsriMetadata(point.latitude, point.longitude)
+                ImageryLayerMode.EsriWorldImagery ->
+                    ImageryMetadataService.findEsriMetadata(point.latitude, point.longitude)
+            }
+            metadataLoading = false
+        }
+    }
+
     LaunchedEffect(Unit) {
+        loadMetadataFor(metadataPoint())
         if (isLocationEnabled(context)) {
             AnalyticsTracker.logMapLocationRequest(context, "screen_open", "requesting_permission", points.size)
             requestCurrentLocation()
@@ -145,14 +189,26 @@ fun ParcelMapScreen(
             Surface(
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(20.dp)
+                        .padding(16.dp)
                         .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    LayerModeSelector(
+                        selected = selectedLayerMode,
+                        onSelected = {
+                            selectedLayerMode = it
+                            loadMetadataFor(metadataPoint(), it)
+                        }
+                    )
+                    ImageryMetadataPanel(
+                        metadata = activeMetadata,
+                        loading = metadataLoading,
+                        usingFallback = selectedLayerMode == ImageryLayerMode.Automatic && openAerialMapLayer == null
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -175,7 +231,7 @@ fun ParcelMapScreen(
                         Button(
                             onClick = { onConfirm(points.map { it.latitude to it.longitude }, area) },
                             enabled = points.size >= 3,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.Done, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
@@ -200,7 +256,7 @@ fun ParcelMapScreen(
                         setMultiTouchControls(true)
                         controller.setZoom(16.0)
                         minZoomLevel = 3.0
-                        maxZoomLevel = 19.0
+                        maxZoomLevel = 23.0
                         isVerticalMapRepetitionEnabled = false
                         isHorizontalMapRepetitionEnabled = false
                         if (points.isNotEmpty()) {
@@ -214,12 +270,37 @@ fun ParcelMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
                 update = { mapView ->
+                    if (cacheClearRequest != handledCacheClearRequest) {
+                        mapView.tileProvider.clearTileCache()
+                        handledCacheClearRequest = cacheClearRequest
+                        Toast.makeText(context, "Cache de mapas limpiado", Toast.LENGTH_SHORT).show()
+                    }
                     if (locationCenterRequest != handledLocationCenterRequest) {
                         currentCenter?.let { mapView.controller.animateTo(it) }
                         handledLocationCenterRequest = locationCenterRequest
                     } else if (points.isEmpty()) {
                         currentCenter?.let { mapView.controller.animateTo(it) }
                     }
+
+                    val shouldShowOam = when (selectedLayerMode) {
+                        ImageryLayerMode.Automatic -> openAerialMapLayer != null
+                        ImageryLayerMode.OpenAerialMap -> openAerialMapLayer != null
+                        ImageryLayerMode.EsriWorldImagery -> false
+                    }
+                    val tileSourceKey = if (shouldShowOam) {
+                        openAerialMapLayer?.tileTemplate ?: "esri"
+                    } else {
+                        "esri"
+                    }
+                    if (mapView.tag != tileSourceKey) {
+                        if (shouldShowOam) {
+                            mapView.setTileSource(OpenAerialMapTileSource(openAerialMapLayer!!.tileTemplate))
+                        } else {
+                            mapView.setTileSource(EsriWorldImageryTileSource)
+                        }
+                        mapView.tag = tileSourceKey
+                    }
+
                     mapView.overlays.clear()
                     
                     // Add points/markers
@@ -245,6 +326,7 @@ fun ParcelMapScreen(
                     val mapEventsReceiver = object : MapEventsReceiver {
                         override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
                             points = points + p
+                            if (points.isEmpty()) loadMetadataFor(p)
                             return true
                         }
                         override fun longPressHelper(p: GeoPoint): Boolean = false
@@ -281,7 +363,58 @@ fun ParcelMapScreen(
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = stringResource(R.string.my_location))
                 }
+
+                SmallFloatingActionButton(
+                    onClick = { cacheClearRequest += 1 },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Limpiar cache")
+                }
             }
         }
     }
+}
+
+@Composable
+private fun LayerModeSelector(
+    selected: ImageryLayerMode,
+    onSelected: (ImageryLayerMode) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ImageryLayerMode.entries.forEach { mode ->
+            FilterChip(
+                selected = selected == mode,
+                onClick = { onSelected(mode) },
+                label = { Text(mode.label, maxLines = 1) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImageryMetadataPanel(
+    metadata: ImageryMetadata?,
+    loading: Boolean,
+    usingFallback: Boolean
+) {
+    val message = when {
+        loading -> "Consultando metadata de imagen..."
+        metadata != null -> metadata.summary()
+        else -> "Metadata de imagen no disponible para este punto."
+    }
+    AssistChip(
+        onClick = {},
+        label = {
+            Text(
+                if (usingFallback && metadata != null) "$message | fallback Esri" else message,
+                maxLines = 2
+            )
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
