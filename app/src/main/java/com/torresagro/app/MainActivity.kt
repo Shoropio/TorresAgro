@@ -8,9 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
 import com.torresagro.app.data.firebase.FirebaseBootstrap
-import com.torresagro.app.data.firebase.FirebaseAuthManager
 import com.torresagro.app.data.firebase.FirebaseSyncGateway
 import com.torresagro.app.data.local.AgroDatabase
 import com.torresagro.app.data.local.util.TaskReminderScheduler
@@ -21,8 +19,6 @@ import com.torresagro.app.ui.theme.TorresAgroTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var notificationRoute by mutableStateOf<String?>(null)
@@ -55,17 +51,6 @@ class MainActivity : ComponentActivity() {
 
         requestNotificationPermissionIfNeeded()
         FirebaseBootstrap.initializeIfPossible(applicationContext)
-        
-        lifecycleScope.launch {
-            runCatching {
-                if (FirebaseAuthManager().currentUid() != null) {
-                    repository.pushPendingChanges()
-                    repository.pullLatestData()
-                }
-            }.onFailure {
-                android.util.Log.e("TorresAgro", "Error inicial de Firebase: ${it.message}")
-            }
-        }
 
         setContent {
             TorresAgroTheme {

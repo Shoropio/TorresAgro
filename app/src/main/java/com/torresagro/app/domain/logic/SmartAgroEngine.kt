@@ -27,15 +27,26 @@ object SmartAgroEngine {
         agriByParcel: Map<String, AgriData>
     ): List<SmartParcelAnalysis> {
         val today = LocalDate.now()
+        val tasksByParcel = tasks.groupBy { it.parcelId }
+        val activitiesByParcel = activities.groupBy { it.parcelId }
+        val observationsByParcel = observations.groupBy { it.parcelId }
+        val parcelsByCrop = parcels.groupBy { it.cropType }
+        val cropByParcelId = parcels.associate { it.id to it.cropType }
+        val completedTasksByCrop = tasks
+            .filter { it.completed }
+            .groupBy { task -> cropByParcelId[task.parcelId] }
+        val activitiesByCrop = activities
+            .groupBy { activity -> cropByParcelId[activity.parcelId] }
+
         return parcels.map { parcel ->
             val profile = SmartCropCatalog.profileFor(parcel.cropType)
             val daysAfterSowing = runCatching {
                 ChronoUnit.DAYS.between(LocalDate.parse(parcel.sowingDate), today)
             }.getOrDefault(0L).coerceAtLeast(0)
             val stage = profile?.stages?.currentStage(daysAfterSowing)
-            val parcelTasks = tasks.filter { it.parcelId == parcel.id }
-            val parcelActivities = activities.filter { it.parcelId == parcel.id }
-            val parcelObservations = observations.filter { it.parcelId == parcel.id }
+            val parcelTasks = tasksByParcel[parcel.id].orEmpty()
+            val parcelActivities = activitiesByParcel[parcel.id].orEmpty()
+            val parcelObservations = observationsByParcel[parcel.id].orEmpty()
             val weather = weatherByParcel[parcel.id]
             val agri = agriByParcel[parcel.id]
 
@@ -48,7 +59,15 @@ object SmartAgroEngine {
                     )
                     addAll(stageTaskSuggestions(parcel, stage, daysAfterSowing, parcelTasks, profile.criticalTasks))
                 }
-                addAll(learnFromHistory(parcel, parcels, activities, tasks, daysAfterSowing))
+                addAll(
+                    learnFromHistory(
+                        parcel = parcel,
+                        similarParcels = parcelsByCrop[parcel.cropType].orEmpty().filter { it.id != parcel.id },
+                        activitiesForCrop = activitiesByCrop[parcel.cropType].orEmpty(),
+                        completedTasksForCrop = completedTasksByCrop[parcel.cropType].orEmpty(),
+                        daysAfterSowing = daysAfterSowing
+                    )
+                )
             }.distinctBy { it.title + it.source }.sortedWith(
                 compareByDescending<SmartSuggestion> { it.priority == "Alta" }
                     .thenByDescending { it.confidence }
@@ -155,25 +174,22 @@ object SmartAgroEngine {
 
     private fun learnFromHistory(
         parcel: Parcel,
-        parcels: List<Parcel>,
-        activities: List<ActivityRecord>,
-        tasks: List<CropTask>,
+        similarParcels: List<Parcel>,
+        activitiesForCrop: List<ActivityRecord>,
+        completedTasksForCrop: List<CropTask>,
         daysAfterSowing: Long
     ): List<SmartSuggestion> {
-        val similarParcelIds = parcels
-            .filter { it.id != parcel.id && it.cropType == parcel.cropType }
-            .map { it.id }
-            .toSet()
+        val similarParcelIds = similarParcels.map { it.id }.toSet()
         if (similarParcelIds.isEmpty()) return emptyList()
 
-        val learnedActivities = activities
+        val learnedActivities = activitiesForCrop
             .filter { it.parcelId in similarParcelIds }
             .groupingBy { it.activityType }
             .eachCount()
             .filterValues { it >= 2 }
 
-        val learnedTasks = tasks
-            .filter { it.parcelId in similarParcelIds && it.completed }
+        val learnedTasks = completedTasksForCrop
+            .filter { it.parcelId in similarParcelIds }
             .groupingBy { it.taskType }
             .eachCount()
             .filterValues { it >= 2 }

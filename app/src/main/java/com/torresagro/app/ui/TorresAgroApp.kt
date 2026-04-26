@@ -122,7 +122,7 @@ fun TorresAgroApp(
                 scope.launch {
                     AnalyticsTracker.logManualSync(context, "pull_to_refresh")
                     viewModel.sync()
-                    delay(1500)
+                    delay(450)
                     isRefreshing = false
                 }
             },

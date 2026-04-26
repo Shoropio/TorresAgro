@@ -10,11 +10,15 @@ import com.torresagro.app.domain.model.CropType
 import com.torresagro.app.domain.model.TaskType
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class AppViewModel(
     private val repository: AgroRepository
 ) : ViewModel() {
     val uiState: StateFlow<AppUiState> = repository.uiState
+    private val syncMutex = Mutex()
+    private var lastSyncAtMillis: Long = 0L
 
     fun completeTask(taskId: String) {
         viewModelScope.launch {
@@ -203,8 +207,13 @@ class AppViewModel(
 
     fun sync() {
         viewModelScope.launch {
-            repository.pushPendingChanges()
-            repository.pullLatestData()
+            syncMutex.withLock {
+                val now = System.currentTimeMillis()
+                if (now - lastSyncAtMillis < 15_000) return@withLock
+                lastSyncAtMillis = now
+                repository.pushPendingChanges()
+                repository.pullLatestData()
+            }
         }
     }
 }

@@ -36,6 +36,8 @@ class RoomAgroRepository(
     private val weatherService = WeatherService()
     private val agriService = AgriService()
     private val jsonConv = Json { ignoreUnknownKeys = true }
+    private val cachedTips = buildTips()
+    private val technicalLibrary = SmartCropCatalog.technicalSheets
 
     private fun getCurrentUid(): String = authManager.currentUid() ?: "anonymous"
 
@@ -75,6 +77,12 @@ class RoomAgroRepository(
             ) { left, right ->
                 val (parcels, tasks, activities) = left
                 val (observations, inventory, harvests, weatherCache, agriData) = right
+                val domainParcels = parcels.map { it.toDomain() }
+                val domainTasks = tasks.map { it.toDomain() }
+                val domainActivities = activities.map { it.toDomain() }
+                val domainObservations = observations.map { it.toDomain() }
+                val domainInventory = inventory.map { it.toDomain() }
+                val domainHarvests = harvests.map { it.toDomain() }
                 
                 val currentLocationWeather = weatherCache
                     .firstOrNull { it.id == CURRENT_LOCATION_WEATHER_ID }
@@ -90,7 +98,7 @@ class RoomAgroRepository(
                 val allAlerts = mutableListOf<com.torresagro.app.domain.model.AgroAlert>()
                 val allRecs = mutableListOf<com.torresagro.app.domain.model.Recommendation>()
                 
-                parcels.forEach { p ->
+                domainParcels.forEach { p ->
                     val w = parcelWeatherById[p.id]
                     val a = parcelAgriData[p.id]
                     if (w != null) {
@@ -100,15 +108,15 @@ class RoomAgroRepository(
                 }
 
                 AppUiState(
-                    parcels = parcels.map { it.toDomain() },
-                    tasks = tasks.map { it.toDomain() },
-                    activities = activities.map { it.toDomain() },
-                    observations = observations.map { it.toDomain() },
-                    inventory = inventory.map { it.toDomain() },
-                    harvests = harvests.map { it.toDomain() },
-                    tips = buildTips(),
+                    parcels = domainParcels,
+                    tasks = domainTasks,
+                    activities = domainActivities,
+                    observations = domainObservations,
+                    inventory = domainInventory,
+                    harvests = domainHarvests,
+                    tips = cachedTips,
                     currentLocationWeather = currentLocationWeather ?: WeatherSnapshot(
-                        locationLabel = parcels.firstOrNull()?.locationName ?: "Sincronizando...",
+                        locationLabel = domainParcels.firstOrNull()?.locationName ?: "Sincronizando...",
                         status = "Obteniendo datos reales...",
                         rainfallMm = 0,
                         temperatureC = 0,
@@ -121,14 +129,14 @@ class RoomAgroRepository(
                     alerts = allAlerts.distinctBy { it.message },
                     recommendations = allRecs.distinctBy { it.title },
                     smartAnalyses = SmartAgroEngine.analyze(
-                        parcels = parcels.map { it.toDomain() },
-                        tasks = tasks.map { it.toDomain() },
-                        activities = activities.map { it.toDomain() },
-                        observations = observations.map { it.toDomain() },
+                        parcels = domainParcels,
+                        tasks = domainTasks,
+                        activities = domainActivities,
+                        observations = domainObservations,
                         weatherByParcel = parcelWeatherById,
                         agriByParcel = parcelAgriData
                     ),
-                    technicalLibrary = SmartCropCatalog.technicalSheets
+                    technicalLibrary = technicalLibrary
                 )
             }
         }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), AppUiState())

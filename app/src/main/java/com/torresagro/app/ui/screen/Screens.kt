@@ -89,6 +89,8 @@ fun HomeScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val pendingTasks = remember(state.tasks) { state.tasks.count { !it.completed } }
+    val nextOpenTasks = remember(state.tasks) { state.tasks.filter { !it.completed }.take(3) }
+    var requestedInitialWeather by rememberSaveable { mutableStateOf(false) }
     val requestCurrentLocationWeather: () -> Unit = {
         scope.launch {
             captureCurrentLocation(context)?.let { coords ->
@@ -112,13 +114,19 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+    LaunchedEffect(state.parcels.isNotEmpty(), state.currentLocationWeather?.online) {
+        if (!requestedInitialWeather &&
+            state.parcels.isNotEmpty() &&
+            state.currentLocationWeather?.online != true
+        ) {
+            requestedInitialWeather = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
             )
-        )
+        }
     }
 
     LazyColumn(
@@ -378,7 +386,7 @@ fun HomeScreen(
             item {
                 SectionTitle(stringResource(R.string.next_tasks))
             }
-            items(state.tasks.filter { !it.completed }.take(3), key = { it.id }) { task ->
+            items(nextOpenTasks, key = { it.id }) { task ->
                 TaskMinimalCard(task = task, onCompleteTask = onCompleteTask)
             }
         } else {
