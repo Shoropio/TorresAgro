@@ -24,25 +24,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.torresagro.app.R
 import com.torresagro.app.data.firebase.AnalyticsTracker
-import androidx.compose.ui.viewinterop.AndroidView
-import com.torresagro.app.ui.map.EsriWorldImageryTileSource
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
 import com.torresagro.app.ui.map.ImageryLayerMode
 import com.torresagro.app.ui.map.ImageryMetadata
 import com.torresagro.app.ui.map.ImageryMetadataService
 import com.torresagro.app.ui.map.OpenAerialMapLayer
-import com.torresagro.app.ui.map.OpenAerialMapTileSource
 import com.torresagro.app.ui.util.AreaCalculator
 import com.torresagro.app.ui.util.captureCurrentLocation
 import com.torresagro.app.ui.util.isLocationEnabled
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polygon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,24 +48,23 @@ fun ParcelMapScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    // Initialize osmdroid configuration
-    val userAgent = context.packageName
-    Configuration.getInstance().userAgentValue = userAgent
-    Configuration.getInstance().cacheMapTileCount = 12
+    var points by remember { mutableStateOf(initialPoints.map { LatLng(it.first, it.second) }) }
+    val area = remember(points) { AreaCalculator.calculateHectares(points.map { it.latitude to it.longitude }) }
+    
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            initialPoints.firstOrNull()?.let { LatLng(it.first, it.second) } ?: LatLng(10.35, -83.84),
+            16f
+        )
+    }
 
-    var points by remember { mutableStateOf(initialPoints.map { GeoPoint(it.first, it.second) }) }
-    var currentCenter by remember { mutableStateOf<GeoPoint?>(initialPoints.firstOrNull()?.let { GeoPoint(it.first, it.second) }) }
-    var locationCenterRequest by remember { mutableIntStateOf(0) }
-    var handledLocationCenterRequest by remember { mutableIntStateOf(0) }
     var selectedLayerMode by remember { mutableStateOf(ImageryLayerMode.Automatic) }
     var openAerialMapLayer by remember { mutableStateOf<OpenAerialMapLayer?>(null) }
     var activeMetadata by remember { mutableStateOf<ImageryMetadata?>(null) }
     var metadataLoading by remember { mutableStateOf(false) }
-    var cacheClearRequest by remember { mutableIntStateOf(0) }
-    var handledCacheClearRequest by remember { mutableIntStateOf(0) }
     var metadataJob by remember { mutableStateOf<Job?>(null) }
     var lastMetadataRequestKey by remember { mutableStateOf<String?>(null) }
-    val area = remember(points) { AreaCalculator.calculateHectares(points.map { it.latitude to it.longitude }) }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -83,55 +76,30 @@ fun ParcelMapScreen(
                 scope.launch {
                     val coords = captureCurrentLocation(context)
                     if (coords != null) {
-                        currentCenter = GeoPoint(coords.first, coords.second)
-                        locationCenterRequest += 1
+                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(LatLng(coords.first, coords.second), 17f))
                         AnalyticsTracker.logMapLocationRequest(context, "permission_result", "success", points.size)
-                    } else {
-                        AnalyticsTracker.logMapLocationRequest(context, "permission_result", "not_found", points.size)
-                        Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-        } else {
-            AnalyticsTracker.logMapLocationRequest(context, "permission_result", "permission_denied", points.size)
-            Toast.makeText(context, R.string.location_permission_denied_message, Toast.LENGTH_LONG).show()
         }
     }
 
     fun centerMapOnCurrentLocation() {
         if (!isLocationEnabled(context)) {
-            AnalyticsTracker.logMapLocationRequest(context, "fab", "location_disabled", points.size)
             Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
             return
         }
-
         scope.launch {
             val coords = captureCurrentLocation(context)
             if (coords != null) {
-                currentCenter = GeoPoint(coords.first, coords.second)
-                locationCenterRequest += 1
-                AnalyticsTracker.logMapLocationRequest(context, "fab", "success", points.size)
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(LatLng(coords.first, coords.second), 17f))
             } else {
-                AnalyticsTracker.logMapLocationRequest(context, "fab", "not_found", points.size)
                 Toast.makeText(context, R.string.location_not_found_message, Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    fun requestCurrentLocation() {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
-    }
-
-    fun metadataPoint(): GeoPoint = points.firstOrNull()
-        ?: currentCenter
-        ?: GeoPoint(10.35, -83.84)
-
-    fun loadMetadataFor(point: GeoPoint, mode: ImageryLayerMode = selectedLayerMode) {
+    fun loadMetadataFor(point: LatLng, mode: ImageryLayerMode = selectedLayerMode) {
         val requestKey = "${mode.name}:${"%.4f".format(point.latitude)}:${"%.4f".format(point.longitude)}"
         if (requestKey == lastMetadataRequestKey) return
         lastMetadataRequestKey = requestKey
@@ -156,13 +124,12 @@ fun ParcelMapScreen(
     }
 
     LaunchedEffect(Unit) {
-        loadMetadataFor(metadataPoint())
+        val center = cameraPositionState.position.target
+        loadMetadataFor(center)
         if (isLocationEnabled(context)) {
-            AnalyticsTracker.logMapLocationRequest(context, "screen_open", "requesting_permission", points.size)
-            requestCurrentLocation()
-        } else {
-            AnalyticsTracker.logMapLocationRequest(context, "screen_open", "location_disabled", points.size)
-            Toast.makeText(context, R.string.location_disabled_message, Toast.LENGTH_LONG).show()
+            locationPermissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
         }
     }
 
@@ -192,16 +159,14 @@ fun ParcelMapScreen(
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     LayerModeSelector(
                         selected = selectedLayerMode,
                         onSelected = {
                             selectedLayerMode = it
-                            loadMetadataFor(metadataPoint(), it)
+                            loadMetadataFor(cameraPositionState.position.target, it)
                         }
                     )
                     ImageryMetadataPanel(
@@ -238,113 +203,50 @@ fun ParcelMapScreen(
                             Text(stringResource(R.string.confirm_btn))
                         }
                     }
-                    Text(
-                        stringResource(R.string.map_instructions),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
-    )
-{ padding ->
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            AndroidView(
-                factory = { ctx ->
-                    MapView(ctx).apply {
-                        setTileSource(EsriWorldImageryTileSource)
-                        setMultiTouchControls(true)
-                        controller.setZoom(16.0)
-                        minZoomLevel = 3.0
-                        maxZoomLevel = 23.0
-                        isVerticalMapRepetitionEnabled = false
-                        isHorizontalMapRepetitionEnabled = false
-                        if (points.isNotEmpty()) {
-                            controller.setCenter(points.first())
-                        } else if (currentCenter != null) {
-                            controller.setCenter(currentCenter)
-                        } else {
-                            controller.setCenter(GeoPoint(10.35, -83.84)) // Costa Rica default
-                        }
-                    }
-                },
+            GoogleMap(
                 modifier = Modifier.fillMaxSize(),
-                update = { mapView ->
-                    if (cacheClearRequest != handledCacheClearRequest) {
-                        mapView.tileProvider.clearTileCache()
-                        handledCacheClearRequest = cacheClearRequest
-                        Toast.makeText(context, "Cache de mapas limpiado", Toast.LENGTH_SHORT).show()
-                    }
-                    if (locationCenterRequest != handledLocationCenterRequest) {
-                        currentCenter?.let { mapView.controller.animateTo(it) }
-                        handledLocationCenterRequest = locationCenterRequest
-                    } else if (points.isEmpty()) {
-                        currentCenter?.let { mapView.controller.animateTo(it) }
-                    }
-
-                    val shouldShowOam = when (selectedLayerMode) {
-                        ImageryLayerMode.Automatic -> openAerialMapLayer != null
-                        ImageryLayerMode.OpenAerialMap -> openAerialMapLayer != null
-                        ImageryLayerMode.EsriWorldImagery -> false
-                    }
-                    val tileSourceKey = if (shouldShowOam) {
-                        openAerialMapLayer?.tileTemplate ?: "esri"
-                    } else {
-                        "esri"
-                    }
-                    if (mapView.tag != tileSourceKey) {
-                        if (shouldShowOam) {
-                            mapView.setTileSource(OpenAerialMapTileSource(openAerialMapLayer!!.tileTemplate))
-                        } else {
-                            mapView.setTileSource(EsriWorldImageryTileSource)
-                        }
-                        mapView.tag = tileSourceKey
-                    }
-
-                    mapView.overlays.clear()
-                    
-                    // Add points/markers
-                    points.forEachIndexed { index, geoPoint ->
-                        val marker = Marker(mapView)
-                        marker.position = geoPoint
-                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        marker.title = context.getString(R.string.point_index, index + 1)
-                        mapView.overlays.add(marker)
-                    }
-                    
-                    // Add Polygon
-                    if (points.size >= 2) {
-                        val polygon = Polygon(mapView)
-                        polygon.points = points
-                        polygon.fillPaint.color = 0x444CAF50.toInt()
-                        polygon.outlinePaint.color = 0xFF4CAF50.toInt()
-                        polygon.outlinePaint.strokeWidth = 4f
-                        mapView.overlays.add(polygon)
-                    }
-                    
-                    // Click listener to add points
-                    val mapEventsReceiver = object : MapEventsReceiver {
-                        override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                            points = points + p
-                            if (points.isEmpty()) loadMetadataFor(p)
-                            return true
-                        }
-                        override fun longPressHelper(p: GeoPoint): Boolean = false
-                    }
-                    mapView.overlays.add(MapEventsOverlay(mapEventsReceiver))
-                    
-                    mapView.invalidate()
+                cameraPositionState = cameraPositionState,
+                properties = MapProperties(
+                    mapType = MapType.SATELLITE,
+                    isMyLocationEnabled = isLocationEnabled(context)
+                ),
+                uiSettings = MapUiSettings(
+                    myLocationButtonEnabled = false,
+                    zoomControlsEnabled = false,
+                    compassEnabled = true
+                ),
+                onMapClick = { latLng ->
+                    points = points + latLng
+                    if (points.size == 1) loadMetadataFor(latLng)
                 }
-            )
+            ) {
+                points.forEachIndexed { index, latLng ->
+                    Marker(
+                        state = MarkerState(position = latLng),
+                        title = context.getString(R.string.point_index, index + 1)
+                    )
+                }
+                
+                if (points.size >= 2) {
+                    Polygon(
+                        points = points,
+                        fillColor = Color(0x444CAF50),
+                        strokeColor = Color(0xFF4CAF50),
+                        strokeWidth = 4f
+                    )
+                }
+            }
 
             // FABs for Map Controls
             Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Undo Button
                 SmallFloatingActionButton(
                     onClick = { if (points.isNotEmpty()) points = points.dropLast(1) },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -353,23 +255,12 @@ fun ParcelMapScreen(
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.undo))
                 }
 
-                // My Location Button
                 FloatingActionButton(
-                    onClick = {
-                        centerMapOnCurrentLocation()
-                    },
+                    onClick = { centerMapOnCurrentLocation() },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = stringResource(R.string.my_location))
-                }
-
-                SmallFloatingActionButton(
-                    onClick = { cacheClearRequest += 1 },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Limpiar cache")
                 }
             }
         }
