@@ -1,7 +1,7 @@
 package com.torresagro.app.ui
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -9,6 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.animation.*
@@ -75,45 +78,22 @@ fun TorresAgroApp(
     }
 
     Scaffold(
-        bottomBar = {
+        floatingActionButton = {
             if (currentRoute in topLevel.map { it.route }) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp
-                ) {
-                    topLevel.forEach { destination ->
-                        val icon = when (destination) {
-                            AppDestination.Home -> Icons.Outlined.Home
-                            AppDestination.Parcels -> Icons.Outlined.Map
-                            AppDestination.Tasks -> Icons.Outlined.Today
-                            AppDestination.Inventory -> Icons.Outlined.Inventory2
-                            AppDestination.Intelligence -> Icons.Outlined.TipsAndUpdates
-                            AppDestination.Settings -> Icons.Outlined.Settings
-                            else -> Icons.Outlined.Home
+                ExpandableNavigationFab(
+                    currentRoute = currentRoute,
+                    destinations = topLevel,
+                    onNavigate = { destination ->
+                        navController.navigate(destination.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        NavigationBarItem(
-                            selected = currentRoute == destination.route,
-                            onClick = {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(imageVector = icon, contentDescription = stringResource(destination.label)) },
-                            label = { Text(stringResource(destination.label)) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = AccentSky.copy(alpha = 0.14f),
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
                     }
-                }
+                )
             }
-        }
+        },
+        floatingActionButtonPosition = FabPosition.Center
     ) { paddingValues ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -578,6 +558,96 @@ fun TorresAgroApp(
                 )
             }
             }
+        }
+    }
+}
+
+@Composable
+fun ExpandableNavigationFab(
+    currentRoute: String?,
+    destinations: List<AppDestination>,
+    onNavigate: (AppDestination) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    Column(
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Sub-buttons (Options)
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + shrinkVertically() + slideOutVertically(targetOffsetY = { it / 2 })
+        ) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    destinations.forEach { destination ->
+                        val isSelected = currentRoute == destination.route
+                        val icon = when (destination) {
+                            AppDestination.Home -> Icons.Outlined.Home
+                            AppDestination.Parcels -> Icons.Outlined.Map
+                            AppDestination.Tasks -> Icons.Outlined.Today
+                            AppDestination.Inventory -> Icons.Outlined.Inventory2
+                            AppDestination.Intelligence -> Icons.Outlined.TipsAndUpdates
+                            AppDestination.Settings -> Icons.Outlined.Settings
+                            else -> Icons.Outlined.Home
+                        }
+                        
+                        Surface(
+                            onClick = {
+                                onNavigate(destination)
+                                expanded = false
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            modifier = Modifier.fillMaxWidth(0.5f).padding(horizontal = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = stringResource(destination.label),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Main Trigger Button
+        FloatingActionButton(
+            onClick = { expanded = !expanded },
+            containerColor = if (expanded) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+            contentColor = if (expanded) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary,
+            shape = CircleShape,
+            modifier = Modifier.size(64.dp)
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Outlined.Close else Icons.Outlined.Menu,
+                contentDescription = "Menu",
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }
