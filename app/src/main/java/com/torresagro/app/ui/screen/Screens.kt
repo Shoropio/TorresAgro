@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.torresagro.app.R
+import com.torresagro.app.ui.util.LunarCalendarUtils
 import coil.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,9 +30,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocation
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Brightness2
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.EditCalendar
@@ -51,9 +54,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.torresagro.app.ui.map.EsriWorldImageryTileSource
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Polygon
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.compose.*
 import com.torresagro.app.domain.model.*
 import com.torresagro.app.ui.component.ClickableCard
 import com.torresagro.app.ui.component.EmptyStateCard
@@ -366,6 +370,10 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
+
+        item {
+            LunarPhaseCard()
         }
 
         if (state.recommendations.isNotEmpty()) {
@@ -808,24 +816,31 @@ fun ParcelDetailScreen(
                     shape = RoundedCornerShape(8.dp),
                     border = CardDefaults.outlinedCardBorder()
                 ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            MapView(ctx).apply {
-                                setTileSource(EsriWorldImageryTileSource)
-                                controller.setZoom(16.0)
-                                val pts = parcel.boundary.map { GeoPoint(it.first, it.second) }
-                                controller.setCenter(pts.first())
-                                val polygon = Polygon(this)
-                                polygon.points = pts
-                                polygon.fillPaint.color = 0x444CAF50.toInt()
-                                polygon.outlinePaint.color = 0xFF4CAF50.toInt()
-                                polygon.outlinePaint.strokeWidth = 4f
-                                overlays.add(polygon)
-                                setMultiTouchControls(false) // Disable interaction for preview
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    val pts = remember(parcel.boundary) { parcel.boundary.map { LatLng(it.first, it.second) } }
+                    val cameraPositionState = rememberCameraPositionState {
+                        position = CameraPosition.fromLatLngZoom(pts.firstOrNull() ?: LatLng(0.0, 0.0), 16f)
+                    }
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        properties = MapProperties(mapType = MapType.SATELLITE),
+                        uiSettings = MapUiSettings(
+                            zoomControlsEnabled = false,
+                            scrollGesturesEnabled = false,
+                            zoomGesturesEnabled = false,
+                            tiltGesturesEnabled = false,
+                            rotationGesturesEnabled = false
+                        )
+                    ) {
+                        if (pts.size >= 2) {
+                            Polygon(
+                                points = pts,
+                                fillColor = Color(0x444CAF50),
+                                strokeColor = Color(0xFF4CAF50),
+                                strokeWidth = 4f
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1400,52 +1415,44 @@ fun AgriMapScreen(
     onOpenParcel: (String) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { ctx ->
-                MapView(ctx).apply {
-                    setTileSource(EsriWorldImageryTileSource)
-                    controller.setZoom(14.0)
-                    
-                    state.parcels.firstOrNull()?.let { p ->
-                        p.latitude?.let { lat -> 
-                            p.longitude?.let { lon -> 
-                                controller.setCenter(GeoPoint(lat, lon))
-                            }
-                        }
-                    }
+        val cameraPositionState = rememberCameraPositionState {
+            val firstParcel = state.parcels.firstOrNull { it.latitude != null && it.longitude != null }
+            position = CameraPosition.fromLatLngZoom(
+                firstParcel?.let { LatLng(it.latitude!!, it.longitude!!) } ?: LatLng(10.35, -83.84),
+                12f
+            )
+        }
 
-                    state.parcels.forEach { parcel ->
-                        if (parcel.boundary.isNotEmpty()) {
-                            val pts = parcel.boundary.map { GeoPoint(it.first, it.second) }
-                            val polygon = Polygon(this)
-                            polygon.points = pts
-                            
-                            val agri = state.parcelAgriData[parcel.id]
-                            val ndvi = agri?.ndvi ?: 0.5
-                            
-                            val color = when {
-                                ndvi > 0.7 -> 0x882E7D32
-                                ndvi > 0.5 -> 0x884CAF50
-                                ndvi > 0.3 -> 0x88FFC107
-                                else -> 0x88E65100
-                            }
-                            
-                            polygon.fillPaint.color = color.toInt()
-                            polygon.outlinePaint.color = 0xFFFFFFFF.toInt()
-                            polygon.outlinePaint.strokeWidth = 3f
-                            polygon.title = "${parcel.name}\nNDVI: ${"%.2f".format(ndvi)}"
-                            polygon.setOnClickListener { _, _, _ ->
-                                onOpenParcel(parcel.id)
-                                true
-                            }
-                            overlays.add(polygon)
-                        }
+        GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(mapType = MapType.SATELLITE),
+            uiSettings = MapUiSettings(zoomControlsEnabled = false)
+        ) {
+            state.parcels.forEach { parcel ->
+                if (parcel.boundary.isNotEmpty()) {
+                    val pts = parcel.boundary.map { LatLng(it.first, it.second) }
+                    val agri = state.parcelAgriData[parcel.id]
+                    val ndvi = agri?.ndvi ?: 0.5
+                    
+                    val color = when {
+                        ndvi > 0.7 -> Color(0x882E7D32)
+                        ndvi > 0.5 -> Color(0x884CAF50)
+                        ndvi > 0.3 -> Color(0x88FFC107)
+                        else -> Color(0x88E65100)
                     }
-                    setMultiTouchControls(true)
+                    
+                    Polygon(
+                        points = pts,
+                        fillColor = color,
+                        strokeColor = Color.White,
+                        strokeWidth = 3f,
+                        clickable = true,
+                        onClick = { onOpenParcel(parcel.id) }
+                    )
                 }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
+        }
         
         SmallFloatingActionButton(
             onClick = onBack,
@@ -1464,6 +1471,125 @@ fun AgriMapScreen(
                 LegendItem(Color(0xFF2E7D32), stringResource(R.string.high_vigor))
                 LegendItem(Color(0xFF4CAF50), stringResource(R.string.medium_vigor))
                 LegendItem(Color(0xFFE65100), stringResource(R.string.low_vigor))
+            }
+        }
+    }
+}
+
+@Composable
+fun LunarPhaseCard() {
+    val currentPhase = remember { LunarCalendarUtils.getMoonPhase() }
+    val recommendations = remember(currentPhase) { LunarCalendarUtils.getRecommendations(currentPhase) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Brightness2,
+                        contentDescription = null,
+                        tint = Color(0xFFFBC02D),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        "Calendario Lunar",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        currentPhase.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            
+            Text(
+                currentPhase.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            HorizontalDivider(modifier = Modifier.alpha(0.3f))
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Recomendaciones Agrícolas:",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                recommendations.forEach { recommendation ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text("•", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
+                        Text(
+                            recommendation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.alpha(0.3f))
+            
+            val forecast = remember { LunarCalendarUtils.getLunarForecast(8) }
+            Text(
+                "Planificación Lunar (Próximos días):",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                items(forecast) { (date, phase) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.width(60.dp)
+                    ) {
+                        Text(
+                            text = if (date == LocalDate.now()) "Hoy" else date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale("es", "MX")).uppercase().replace(".", ""),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (date == LocalDate.now()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (date == LocalDate.now()) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Text(phase.symbol, fontSize = 24.sp)
+                        Text(
+                            phase.label.replace(" ", "\n"),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 8.sp,
+                            maxLines = 2,
+                            lineHeight = 9.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
     }
