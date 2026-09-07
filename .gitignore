@@ -10,7 +10,6 @@ local.properties
 .idea
 *.iml
 .DS_Store
-/docs
 *.zip
 *.tar
 *.gz

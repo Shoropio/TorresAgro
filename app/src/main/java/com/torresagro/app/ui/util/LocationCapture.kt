@@ -12,6 +12,7 @@ import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 suspend fun captureCurrentLocation(context: Context): Pair<Double, Double>? {
     val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -23,7 +24,7 @@ suspend fun captureCurrentLocation(context: Context): Pair<Double, Double>? {
     if (gmsStatus == ConnectionResult.SUCCESS) {
         val client = LocationServices.getFusedLocationProviderClient(context)
         try {
-            val lastLocation = client.lastLocation.await()
+            val lastLocation = withTimeoutOrNull(5_000L) { client.lastLocation.await() }
             if (lastLocation != null) {
                 return lastLocation.latitude to lastLocation.longitude
             }
@@ -31,7 +32,7 @@ suspend fun captureCurrentLocation(context: Context): Pair<Double, Double>? {
             val request = CurrentLocationRequest.Builder()
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build()
-            val freshLocation = client.getCurrentLocation(request, null).await()
+            val freshLocation = withTimeoutOrNull(10_000L) { client.getCurrentLocation(request, null).await() }
             if (freshLocation != null) {
                 return freshLocation.latitude to freshLocation.longitude
             }

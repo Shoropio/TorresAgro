@@ -1,6 +1,7 @@
 package com.torresagro.app.data.repository
 
 import com.torresagro.app.data.local.entity.ActivityRecordEntity
+import com.torresagro.app.data.local.entity.AgriDataEntity
 import com.torresagro.app.data.local.entity.CropObservationEntity
 import com.torresagro.app.data.local.entity.CropTaskEntity
 import com.torresagro.app.data.local.entity.HarvestRecordEntity
@@ -9,29 +10,30 @@ import com.torresagro.app.data.local.entity.ParcelEntity
 import com.torresagro.app.data.local.entity.WeatherCacheEntity
 import com.torresagro.app.domain.model.ActivityRecord
 import com.torresagro.app.domain.model.ActivityType
+import com.torresagro.app.domain.model.AgriData
 import com.torresagro.app.domain.model.CropObservation
 import com.torresagro.app.domain.model.CropTask
 import com.torresagro.app.domain.model.CropType
+import com.torresagro.app.domain.model.DailyForecast
 import com.torresagro.app.domain.model.HarvestSummary
+import com.torresagro.app.domain.model.HistoricalGrid
 import com.torresagro.app.domain.model.InventoryItem
 import com.torresagro.app.domain.model.Parcel
+import com.torresagro.app.domain.model.PestPrediction
 import com.torresagro.app.domain.model.TaskType
 import com.torresagro.app.domain.model.WeatherSnapshot
-
 import com.torresagro.app.ui.util.AreaCalculator
-import com.torresagro.app.data.local.entity.AgriDataEntity
-import com.torresagro.app.domain.model.AgriData
-import com.torresagro.app.domain.model.DailyForecast
-import com.torresagro.app.domain.model.PestPrediction
-import com.torresagro.app.domain.model.HistoricalGrid
 import kotlinx.serialization.json.Json
+
+private inline fun <reified T : Enum<T>> safeEnumOf(value: String): T =
+    enumValues<T>().find { it.name == value } ?: enumValues<T>().first()
 
 fun ParcelEntity.toDomain() = Parcel(
     id = id,
     name = name,
     locationName = locationName,
     sizeHectares = sizeHectares,
-    cropType = enumValueOf<CropType>(cropType),
+    cropType = safeEnumOf<CropType>(cropType),
     variety = variety,
     sowingDate = sowingDate,
     expectedHarvestDate = expectedHarvestDate,
@@ -46,7 +48,7 @@ fun CropTaskEntity.toDomain() = CropTask(
     parcelId = parcelId,
     title = title,
     dueDate = dueDate,
-    taskType = enumValueOf<TaskType>(taskType),
+    taskType = safeEnumOf<TaskType>(taskType),
     completed = completed,
     priority = priority,
     reminderEnabled = reminderEnabled
@@ -55,7 +57,7 @@ fun CropTaskEntity.toDomain() = CropTask(
 fun ActivityRecordEntity.toDomain() = ActivityRecord(
     id = id,
     parcelId = parcelId,
-    activityType = enumValueOf<ActivityType>(activityType),
+    activityType = safeEnumOf<ActivityType>(activityType),
     date = date,
     cost = cost,
     quantity = quantity,
@@ -86,7 +88,7 @@ fun InventoryItemEntity.toDomain() = InventoryItem(
 
 fun HarvestRecordEntity.toDomain() = HarvestSummary(
     parcelId = parcelId,
-    cropType = enumValueOf<CropType>(cropType),
+    cropType = safeEnumOf<CropType>(cropType),
     harvestedKg = harvestedKg,
     totalCost = totalCost,
     estimatedIncome = estimatedIncome

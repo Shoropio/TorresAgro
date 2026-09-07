@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.torresagro.app.data.firebase.FirebaseBootstrap
 import com.torresagro.app.data.firebase.FirebaseSyncGateway
 import com.torresagro.app.data.local.AgroDatabase
+import com.torresagro.app.data.local.util.SyncGatewayHolder
 import com.torresagro.app.data.local.util.TaskReminderScheduler
 import com.torresagro.app.data.local.util.TaskReminderWorker
 import com.torresagro.app.data.repository.RoomAgroRepository
@@ -32,12 +33,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private val repository by lazy {
-        val syncGateway = FirebaseSyncGateway(applicationContext, database)
+        val authManager = com.torresagro.app.data.firebase.FirebaseAuthManager()
+        val syncGateway = FirebaseSyncGateway(applicationContext, database, authManager)
+        SyncGatewayHolder.set(syncGateway)
         RoomAgroRepository(
             dao = database.agroDao(),
             syncGateway = syncGateway,
             reminderScheduler = TaskReminderScheduler(applicationContext),
-            authManager = com.torresagro.app.data.firebase.FirebaseAuthManager(),
+            authManager = authManager,
             scope = lifecycleScope
         )
     }
@@ -45,9 +48,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         notificationRoute = intent.getStringExtra(TaskReminderWorker.EXTRA_NOTIFICATION_ROUTE)
-        
-        // OSMDroid Initialization
-        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
 
         requestNotificationPermissionIfNeeded()
         FirebaseBootstrap.initializeIfPossible(applicationContext)

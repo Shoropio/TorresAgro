@@ -1353,7 +1353,7 @@ private fun weatherVisualType(conditionResId: Int?, conditionLabel: String): Wea
 
 private fun forecastDayLabel(date: String): String {
     val parsed = runCatching { LocalDate.parse(date) }.getOrNull() ?: return date.takeLast(2)
-    return parsed.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("es", "MX"))
+    return parsed.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("es", "CR"))
         .replace(".", "")
         .lowercase()
 }
@@ -1574,7 +1574,7 @@ fun LunarPhaseCard() {
                         modifier = Modifier.width(60.dp)
                     ) {
                         Text(
-                            text = if (date == LocalDate.now()) "Hoy" else date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale("es", "MX")).uppercase().replace(".", ""),
+                            text = if (date == LocalDate.now()) "Hoy" else date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale("es", "CR")).uppercase().replace(".", ""),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (date == LocalDate.now()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (date == LocalDate.now()) FontWeight.Bold else FontWeight.Normal

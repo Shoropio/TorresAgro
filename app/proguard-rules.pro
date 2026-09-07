@@ -6,6 +6,7 @@
 
 # Keep Kotlin serialization metadata for domain payloads.
 -keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature
+-keepattributes SourceFile,LineNumberTable
 -keep class kotlinx.serialization.** { *; }
 
 # OSMDroid uses reflection for some providers and configuration paths.

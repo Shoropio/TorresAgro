@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AppViewModel(
     private val repository: AgroRepository
@@ -211,8 +212,10 @@ class AppViewModel(
                 val now = System.currentTimeMillis()
                 if (now - lastSyncAtMillis < 15_000) return@withLock
                 lastSyncAtMillis = now
-                repository.pushPendingChanges()
-                repository.pullLatestData()
+                withTimeoutOrNull(30_000L) {
+                    repository.pushPendingChanges()
+                    repository.pullLatestData()
+                }
             }
         }
     }

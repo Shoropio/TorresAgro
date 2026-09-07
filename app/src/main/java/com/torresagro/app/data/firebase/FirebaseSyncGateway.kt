@@ -17,13 +17,14 @@ import kotlinx.coroutines.tasks.await
 
 class FirebaseSyncGateway(
     private val context: Context,
-    private val database: AgroDatabase
+    private val database: AgroDatabase,
+    private val authManager: FirebaseAuthManager = FirebaseAuthManager()
 ) : SyncGateway {
     private val dao = database.agroDao()
 
     override suspend fun pushPendingChanges() {
         if (!FirebaseBootstrap.initializeIfPossible(context)) return
-        val uid = FirebaseAuthManager().ensureSignedIn() ?: return
+        val uid = authManager.ensureSignedIn() ?: return
         val firestore = FirebaseFirestore.getInstance()
         val queue = dao.getSyncQueueItems(uid)
 
@@ -41,7 +42,7 @@ class FirebaseSyncGateway(
 
     override suspend fun pullLatestData() {
         if (!FirebaseBootstrap.initializeIfPossible(context)) return
-        val uid = FirebaseAuthManager().ensureSignedIn() ?: return
+        val uid = authManager.ensureSignedIn() ?: return
         val firestore = FirebaseFirestore.getInstance()
 
         val parcels = firestore.collection(userPath(uid, "parcels")).get().await().documents.mapNotNull { doc ->

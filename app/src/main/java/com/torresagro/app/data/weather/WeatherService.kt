@@ -21,14 +21,9 @@ class WeatherService {
 
     private val json = Json { ignoreUnknownKeys = true }
     
-    // API Keys
-    private var openWeatherApiKey: String = BuildConfig.OPEN_WEATHER_API_KEY
-    private var visualCrossingApiKey: String = BuildConfig.VISUAL_CROSSING_API_KEY
-
-    fun setApiKeys(owm: String, vc: String) {
-        openWeatherApiKey = owm
-        visualCrossingApiKey = vc
-    }
+    // API Keys (inmutables despues de inicializacion)
+    private val openWeatherApiKey: String = BuildConfig.OPEN_WEATHER_API_KEY
+    private val visualCrossingApiKey: String = BuildConfig.VISUAL_CROSSING_API_KEY
 
     suspend fun fetchWeather(locationName: String, lat: Double? = null, lon: Double? = null): WeatherSnapshot = withContext(Dispatchers.IO) {
         val (finalLat, finalLon) = if (lat != null && lon != null) {
@@ -144,7 +139,7 @@ class WeatherService {
     }
 
     private suspend fun geocode(locationName: String): GeoResult = withContext(Dispatchers.IO) {
-        if (locationName.isBlank()) return@withContext GeoResult(19.4326, -99.1332)
+        if (locationName.isBlank()) return@withContext GeoResult(9.9281, -84.0907)
         val encoded = URLEncoder.encode(locationName, StandardCharsets.UTF_8)
         val geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name=$encoded&count=1&language=es&format=json"
 
@@ -153,7 +148,7 @@ class WeatherService {
             val text = connection.readBodyOrThrow()
             json.decodeFromString<GeoResponse>(text)
         }.getOrNull()
-        response?.results?.firstOrNull() ?: GeoResult(19.4326, -99.1332)
+        response?.results?.firstOrNull() ?: GeoResult(9.9281, -84.0907)
     }
 
     private fun openConnection(url: String): java.net.HttpURLConnection {

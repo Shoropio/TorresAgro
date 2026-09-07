@@ -7,10 +7,10 @@ import com.torresagro.app.data.repository.SyncGateway
 
 class OfflineSyncWorker(
     appContext: Context,
-    params: WorkerParameters,
-    private val syncGateway: SyncGateway
+    params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
+        val syncGateway = SyncGatewayHolder.get() ?: return Result.failure()
         return runCatching {
             syncGateway.pushPendingChanges()
             syncGateway.pullLatestData()
@@ -19,4 +19,15 @@ class OfflineSyncWorker(
             onFailure = { Result.retry() }
         )
     }
+}
+
+object SyncGatewayHolder {
+    @Volatile
+    private var instance: SyncGateway? = null
+
+    fun set(gateway: SyncGateway) {
+        instance = gateway
+    }
+
+    fun get(): SyncGateway? = instance
 }
